@@ -1,0 +1,95 @@
+/** Subprocess wrapper for running gh and git commands under the deployment's configured account. */
+import { execFile } from 'node:child_process'
+import { basename } from 'node:path'
+import { promisify } from 'node:util'
+import { z } from 'zod'
+import type { Deployment } from '../config.ts'
+
+const exec = promisify(execFile)
+const TIMEOUT_MS = 90_000
+/**
+ * Error thrown when a CLI invocation fails, capturing stderr diagnostics, API error codes, and exit status without echoing
+ * command arguments.
+ */
+export class CliError extends Error {
+  constructor(message: string, readonly code?: number, readonly exitCode?: number) { super(message) }
+}
+/** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
+export function commandError(error: unknown, program = 'command'): Error {
+  if (error instanceof Error && error.name === 'AbortError') return error
+  const exitCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'number' ? error.code : undefined
+  if (error && typeof error === 'object' && 'stderr' in error && typeof error.stderr === 'string') {
+    const stderr = error.stderr.trim()
+    let parsed: { error?: { code?: number; message?: string } } | undefined
+    try { parsed = JSON.parse(stderr.slice(stderr.indexOf('{'))) as typeof parsed }
+    catch { /* Non-JSON CLI diagnostics are retained below. */ }
+    const code = parsed?.error?.code
+    if (parsed?.error?.message) return new CliError(`${parsed.error.message}${code ? ` (${code})` : ''}`, code, exitCode)
+    // `gh` exits non-zero on HTTP errors (such as `gh: Not Found (HTTP 404)`) and on `gh: HTTP 304`, which ETag polling relies on.
+    if (stderr) return new CliError(stderr.slice(0, 2000), Number(/\bHTTP (\d{3})\b/.exec(stderr)?.[1]) || undefined, exitCode)
+  }
+  return new CliError(`${basename(program)} ${ended(error)}`, undefined, exitCode)
+}
+function ended(error: unknown): string {
+  const { killed, signal, code } = (error ?? {}) as { killed?: boolean; signal?: string | null; code?: unknown }
+  if (code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return 'printed more output than it may'
+  // `execFile` timeout terminates the process with SIGTERM and sets `killed: true`.
+  if (killed && signal === 'SIGTERM') return `timed out after ${TIMEOUT_MS / 1000} s`
+  if (signal) return `was stopped by ${signal}`
+  if (typeof code === 'number') return `exited with code ${code}`
+  return typeof code === 'string' ? `could not run: ${code}` : 'failed'
+}
+export interface Tally { skipped: number }
+/** Parses array elements against a schema, skipping invalid items and incrementing `tally.skipped`. */
+export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tally?: Tally): T[] {
+  const items = list.flatMap(value => { const parsed = item.safeParse(value); return parsed.success ? [parsed.data] : [] })
+  if (tally) tally.skipped += list.length - items.length
+  return items
+}
+/**
+ * Executes gh and git subprocesses with deployment account credentials, timeouts, and abort signals.
+ * Restricts GitHub API calls to the configured repository and translates CLI failures into CliError instances.
+ */
+export class Commands {
+  /**
+   * @param resolved - returns the resolved deployment, or throws while setup is still pending.
+   * @param environment - variables overriding `process.env` for every command.
+   */
+  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal) {}
+  get deployment(): Deployment { return this.resolved() }
+  get repository(): string { return this.deployment.repository }
+  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal])) : this }
+  async run(program: string, args: string[], cwd?: string): Promise<string> {
+    try {
+      const { stdout } = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+        env: { ...process.env, ...this.environment, GH_PROMPT_DISABLED: '1' } })
+      return stdout
+    } catch (error) { throw commandError(error, program) }
+  }
+  /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository. */
+  async gh<T>(args: string[]): Promise<T> { return JSON.parse(await this.run(this.deployment.github.cli, args)) as T }
+  /**
+   * Calls the GitHub API on a path within the configured repository, validating JSON output when a schema is provided
+   * or returning raw CLI output (such as raw files or `--include` headers) when omitted.
+   * @throws CliError with GitHub's HTTP status as `code` on failure.
+   */
+  async api<T>(schema: z.ZodType<T>, path: string, ...flags: string[]): Promise<T>
+  async api(path: string, ...flags: string[]): Promise<string>
+  async api<T>(schema: z.ZodType<T> | string, ...rest: string[]): Promise<T | string> {
+    if (typeof schema === 'string') return this.run(this.deployment.github.cli, ['api', this.path(schema), ...rest])
+    const [path = '', ...flags] = rest
+    return schema.parse(await this.gh(['api', this.path(path), ...flags]))
+  }
+  /** Fetches all pages of a GitHub API list within the configured repository, skipping items that fail schema validation. */
+  async pages<T>(item: z.ZodType<T>, path: string, tally?: Tally): Promise<T[]> {
+    const pages = z.array(z.array(z.unknown())).parse(await this.gh(['api', this.path(path), '--paginate', '--slurp']))
+    return validItems(item, pages.flat(), tally)
+  }
+  private path(path: string): string {
+    const outside = /^\/|^[a-z]+:|(^|\/)\.\.?(\/|\?|$)/i.test(path)
+    if (outside) throw new Error('GitHub calls are restricted to the configured repository')
+    return path ? `repos/${this.repository}/${path}` : `repos/${this.repository}`
+  }
+  /** Runs `git` on PATH in `cwd`. */
+  async git(args: string[], cwd: string): Promise<string> { return this.run('git', args, cwd) }
+}
