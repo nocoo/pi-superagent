@@ -43,16 +43,17 @@ export const ticketOfSession = (sessionId: string): string | undefined =>
 
 /**
  * Tracks slots against the configured concurrency limit: a ticket holds one from the start of its launch and throughout
- * a running turn. A person's message may use one extra slot so it never waits behind new work.
+ * a running turn. A person's message needs no slot of its own — it steers the session that already holds one — so a
+ * correction never waits behind new work.
  */
 class Slots {
-  private readonly starting = new Map<string, 'launch' | 'person'>()
+  private readonly starting = new Set<string>()
   constructor(private readonly running: () => string[], private readonly max: () => number) {}
-  used(): number { return new Set([...this.running(), ...this.starting.keys()]).size }
-  reserve(ticketId: string, by: 'launch' | 'person'): void {
+  used(): number { return new Set([...this.running(), ...this.starting]).size }
+  reserve(ticketId: string): void {
     if (this.starting.has(ticketId)) return
-    if (this.used() >= this.max() + (by === 'person' ? 1 : 0)) throw new Later('No worker slot is free')
-    this.starting.set(ticketId, by)
+    if (this.used() >= this.max()) throw new Later('No worker slot is free')
+    this.starting.add(ticketId)
   }
   free(ticketId: string): void { this.starting.delete(ticketId) }
 }
@@ -98,7 +99,7 @@ export class PiExecutor implements Executor {
 
   private async launch(ticketId: string, assignmentId: string): Promise<void> {
     if (this.host.paused()) throw new Later('Processing is paused')
-    this.slots.reserve(ticketId, 'launch')
+    this.slots.reserve(ticketId)
     let started = false
     try {
       const ticket = this.host.store.tickets.get(ticketId)
