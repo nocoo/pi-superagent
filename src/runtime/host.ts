@@ -18,6 +18,7 @@ import { policyEffects, settingsPolicy, type Settings } from '../policy.ts'
 import { Commands } from '../infra/commands.ts'
 import { executionRoot } from '../agents/environment.ts'
 import type { Deployment } from '../config.ts'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 export interface HostOptions {
@@ -60,6 +61,7 @@ export class Host implements SourceHost {
 
   constructor(private readonly options: HostOptions) {
     const { stateDir, deployment } = options
+    mkdirSync(stateDir, { recursive: true, mode: 0o700 })
     this.release = lockSync(stateDir, { stale: 30_000 })
     this.store = new Store(join(stateDir, 'superagent.sqlite'), error => { console.error('afterCommit failed: %s', String(error)) })
     this.commands = new Commands(() => deployment, {}, this.lifetime.signal)
