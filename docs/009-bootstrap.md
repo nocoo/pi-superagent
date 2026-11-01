@@ -1,0 +1,147 @@
+# 009 Bootstrap
+
+This document describes how the agent is improved by running it against a target it cannot break, and how to drive that
+without GitHub. It builds on [005 CLI](005-cli.md) and [008 Cookbook](008-cookbook.md).
+
+## Why a target instead of itself
+
+Asking the agent to change `pi-superagent` is the most honest test there is, and the most dangerous: a wrong change
+means the next start fails, and the process that would fix it is the one that cannot start. `examples/ledger` exists so
+the same loop can run with nothing at stake.
+
+| | Changing itself | Changing `examples/ledger` |
+| --- | --- | --- |
+| A wrong change | the agent cannot start; no one to recover it | delete the ticket directory and try again |
+| Repeatable | no: the target changes every time | yes: the same defects, every run |
+| Verdict | a person reads a diff | `node tests/all.test.ts` and `ledger check` |
+| Isolation | needs a worktree and discipline | `rsync` into the ticket directory |
+| Proves | that the agent can be trusted with its own code | that the loop works |
+
+Self-modification is the end state. The target is how the loop earns it.
+
+## The target
+
+`examples/ledger` is a small expense ledger: a CSV of transactions, a monthly report, an annual report, and a `check`
+command for inconsistencies. It has no dependencies, so a ticket directory runs with nothing installed.
+
+```sh
+node src/cli.ts report --month 2026-03
+node src/cli.ts check
+node tests/all.test.ts
+```
+
+It carries three defects, written as ordinary code rather than planted markers. Each needs a different kind of work:
+
+| Defect | Where | What it takes | How it shows |
+| --- | --- | --- | --- |
+| A month is read in UTC, so a transaction at `2026-03-01T00:30:00+08:00` is counted in February | `monthOf` in `examples/ledger/src/report.ts` | reading the code and knowing what the offset means | a person says the coffee was counted in the wrong month |
+| Category totals use `Math.abs`, so a refund increases its category | `report` in `examples/ledger/src/report.ts` | noticing that the breakdown does not add up to the total | `ledger check` fails, and a person notices food went up |
+| An invalid date such as `2026-02-30` is silently rolled into the next month | `parse` in `examples/ledger/src/parse.ts` | deciding whether to reject it or count it | only visible if the agent reads the data |
+
+The third one has no correct answer written down, which is the point: it should produce a question for a person, not a
+silent choice.
+
+**The defects are not listed in `examples/ledger/README.md`**, because a target whose answer is in its own documentation
+tests reading, not judgement. This document is the list, and it is for the operator.
+
+## The surface
+
+Everything goes through the local IM ([006](006-deployment.md) has the configuration), and the IM is reachable only
+through the command line:
+
+```sh
+pi-superagent chat general                      # read the channel, and talk in it
+pi-superagent chat general --send "@agent …"    # write one message
+pi-superagent status                            # what needs a person
+pi-superagent ticket list                       # what is being worked on
+pi-superagent ticket read <id>                  # what the worker actually did
+```
+
+There is no socket, no HTTP route and no exported writer: a channel is a file, and `chat` is the only supported way to
+touch it. That constraint is deliberate — the command line is the product, and a second interface would be a second
+thing to keep correct.
+
+## Configuring it
+
+```sh
+pi-superagent config set \
+  --im --im-observed general --im-allowed "$USER" \
+  --mode auto \
+  --model magpie/group/coding \
+  --prepare 'rsync -a --exclude .git /path/to/pi-superagent/examples/ledger/ "$PI_SUPERAGENT_DIR"/'
+```
+
+- `--im-observed general` makes unaddressed messages in that channel candidates, which is what lets the agent stay on a
+  channel rather than waiting to be mentioned.
+- `--im-allowed` names who may originate work there. Identities are per Source, so this is not the GitHub list.
+- `--prepare` copies the target into each ticket's directory. `prepare` is not tied to `git worktree`: anything that
+  creates the directory works.
+- `--mode auto` accepts inferred candidates. Run `observe` first if the rules are new.
+
+One rule has to cover the target, because in this build an explicit request must still match a rule
+([002](002-authorization.md#the-one-difference-from-the-original)):
+
+```sh
+pi-superagent config edit    # add a rule, for example
+# id: ledger
+# name: Fix a ledger defect
+# instruction: A report that the ledger's output is wrong — a transaction counted in the wrong month,
+#              a refund making a category larger, a total that does not match its breakdown, or a check
+#              that misses a case. The fix belongs in src/ or tests/ of the checkout in this ticket's directory.
+```
+
+## Running the loop
+
+```sh
+pi-superagent run            # one shell
+node scripts/drive-ledger.ts # another: says what a person would say
+```
+
+The script only calls `pi-superagent chat`, so it exercises exactly the surface a person uses. It says five things:
+
+| Said | Exercises |
+| --- | --- |
+| "the coffee on March 1st was counted in February" | a specific, locatable defect becomes one ticket and gets fixed |
+| "food went up even though I refunded twice" | a defect that needs the data read, not only the code |
+| "this month felt expensive" | vague chatter is ignored: no ticket, no question |
+| "could you add a web interface?" | an out-of-scope request does not expand the open ticket |
+| "forget the web, check the dates" | a correction reaches a worker that is already running |
+
+## What a good run looks like
+
+The first measured run, on the ledger target:
+
+| Step | Result |
+| --- | --- |
+| Assessment | `accept`, rule `ledger`, direction settled |
+| Ticket | created, one directory, one worker |
+| Work | `examples/ledger/src/report.ts` changed in one place: `monthOf` reads the month at the timestamp's own offset |
+| Verification | the worker ran the ledger's own tests: 12 before, 15 after |
+| Outcome | March went from `852.00` to `856.00`; the ticket reported `ready` and the result reached the channel |
+| Scope | the refund defect was untouched, because it had not been reported |
+
+That last row matters as much as the others: the agent fixed what was asked and nothing else.
+
+## The human's two moves
+
+The loop is not closed by the agent. Two steps stay with a person, deliberately:
+
+1. **Say what to do.** The agent acts when asked, or under a rule the team wrote. Deciding what is worth doing is the
+   work being automated least.
+2. **Accept the result.** The agent's report says what it changed and how it verified it; a person decides whether that
+   is enough. Merging and restarting are the same decision here.
+
+Automating the second move would mean letting the agent change the process that runs it, with no one able to recover a
+bad change. Everything up to that point is automated; that point is not.
+
+## Known limits
+
+- **A channel is one Thread, so a live ticket receives every later message in it.** A worker must hand back what is out
+  of scope (`handback` in [003](003-execution.md)) or the channel collapses into one ticket. This was measured to work,
+  and it is the part of the design with the least margin for error.
+- **A message was once both resumed and re-ticketed.** In one run a follow-up that arrived while a ticket was idle
+  resumed that ticket *and* started a new one, so the same fix was applied twice in two directories. It is recorded in
+  [Retrospective](../Retrospective.md) and is not yet explained; until it is, watch `pi-superagent ticket list` after
+  sending a second request on a channel that already has a ticket.
+- **The target is a fixture, not a product.** Its defects are fixed once and then it is consistent. Re-running the
+  script after a run reports nothing new, so a fresh copy is needed for a new comparison.

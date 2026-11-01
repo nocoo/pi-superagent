@@ -63,3 +63,50 @@ Fixed by validating in the `decide` tool's `execute`. The first run after the ch
 
 **Lesson:** anywhere a model produces structured output against rules, validate at the point where the model can still
 see the error. Post-hoc validation turns a small mistake into a lost round trip.
+
+## 2026-11-01 — the IM bootstrap run
+
+Driving the agent through a local channel against `examples/ledger` produced one correct result and one unexplained
+duplicate.
+
+### The follow-up was both resumed and re-ticketed
+
+Timeline from the run's own database:
+
+| Time | Event |
+| --- | --- |
+| 05:52:27 | ticket A created; assignment 1 starts |
+| 05:53:04 | assignment 1 reports `ready`; the ticket ends |
+| 05:54:14 | a second message arrives in the same channel |
+| 05:54:14 | ticket A receives a `resumed` input and assignment 2 starts |
+| 05:54:34 | an Eval judges the same trigger, decides `accept`, and creates ticket B |
+| 05:54:53 | ticket B reports `ready`; ticket A ends again |
+
+One person's message produced two Tickets and the same fix was applied in two directories. The user sees two results for
+one request.
+
+What is known:
+
+- Only one Trigger exists for that message, so this is not a duplicate ingest.
+- The domain's own suite (113 tests, carried over unchanged) passes, including follow-ups.
+- Reproducing it in isolation with the real Engine on SQLite — a live subscribed ticket, and later an ended one that
+  resumes — produced **no** second Eval in either case.
+
+So the cause is in the interaction with something the production path has and the repro does not: the two-second
+`Passes` loop, the IM Source's watcher firing during a pass, or the Executor's `wake` racing the owners check. It is
+recorded rather than guessed: a fix based on a hypothesis that the domain already contradicts would be worse than a
+known issue.
+
+Until it is explained, `docs/009` tells an operator to watch `ticket list` after sending a second request on a channel
+that already has a ticket.
+
+**Lesson:** an in-memory or SQLite repro that passes does not clear the production path, because the production path has
+concurrency the repro does not. Reproduce with the timer, not without it.
+
+### What the run did get right
+
+- The defect was found in one place: `monthOf` in the report now reads the month at the timestamp's own offset.
+- The worker ran the target's own tests — 12 before its change, 15 after — before reporting `ready`.
+- The result reached the channel, so the person who asked saw the answer without opening a terminal.
+- The refund defect was left alone, because it had not been reported. Acting only on what was asked is the behaviour
+  the whole authorization layer exists to produce.

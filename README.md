@@ -94,6 +94,7 @@ Read the numbered documents in order; each builds only on the ones before it.
 - [006 Deployment](docs/006-deployment.md)
 - [007 Architecture](docs/007-architecture.md)
 - [008 Cookbook](docs/008-cookbook.md): adding a Source
+- [009 Bootstrap](docs/009-bootstrap.md): improving the agent by running it on a target
 
 `pnpm check` runs the typecheck, the tests and the build.
 

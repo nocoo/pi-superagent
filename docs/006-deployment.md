@@ -4,6 +4,18 @@ This document covers installing and operating one instance: the accounts it need
 that prepares a Ticket's directory, how to keep it running, and what to check when it stops doing what you expect. It
 builds on [005 CLI](005-cli.md).
 
+## Two ways to drive it
+
+The agent works one repository. What wakes it up is a Source, and this build has two:
+
+| Source | Needs | Use |
+| --- | --- | --- |
+| `github` | a repository and an agent account | the product: issues, pull requests, CI |
+| `im` | nothing but this machine | working on a target without GitHub; see [009](009-bootstrap.md) |
+
+Both may run at once. A deployment with only `im` needs no GitHub account at all, which is what makes it usable as a
+workbench.
+
 ## Prerequisites
 
 | Needs | Why |
