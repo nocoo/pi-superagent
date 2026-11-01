@@ -288,3 +288,27 @@ interface TriggerRecord {
 type DecisionRecord = { id: string; evalId: string; threadKey: string; triggerIds: string[]; policyVersion: string; at: string
   kind: 'ignore' | 'accept' | 'stop' | 'unavailable'; reason: { code: string }[]; strength: 'explicit' | 'inferred'
   audit?: Record<string, unknown> }
+
+describe('option validation', () => {
+  it('rejects a value it cannot use before the command runs', () => {
+    const dir = stateDir()
+    run(['--state-dir', dir, 'config', 'set', '--im'])
+    expect(run(['--state-dir', dir, 'ticket', 'list', '--limit', 'many']).code).toBe(2)
+    expect(run(['--state-dir', dir, 'ticket', 'list', '--stage', 'nope']).code).toBe(2)
+    expect(run(['--state-dir', dir, 'ticket', 'wait', 'abcdef', '--until', 'soon']).code).toBe(2)
+  })
+})
+
+describe('the state directory', () => {
+  it('is taken from the flag, then the environment, then the default', () => {
+    const dir = stateDir()
+    run(['--state-dir', dir, 'config', 'set', '--im'])
+    // The flag wins over the environment.
+    const flagged = run(['--state-dir', dir, 'status'], { env: { PI_SUPERAGENT_STATE_DIR: '/nonexistent' } })
+    expect(flagged.code).toBe(0)
+    // The environment is used when no flag is given.
+    const fromEnv = run(['status'], { env: { PI_SUPERAGENT_STATE_DIR: dir } })
+    expect(fromEnv.code).toBe(0)
+    expect(fromEnv.out).toMatch(/policy/)
+  })
+})

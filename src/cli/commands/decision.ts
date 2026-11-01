@@ -35,11 +35,11 @@ function directionLines(decision: Decision): string[] {
   ].map(([name, value]) => `${(name ?? '').padEnd(24)} ${value}`)
 }
 
-export function decisionList(cli: Cli, options: { kind?: string[]; since: string; limit: string }): void {
+export function decisionList(cli: Cli, options: { kind?: string[]; since: string; limit: number }): void {
   const store = openForRead(cli)
   try {
     const from = since(options.since)
-    const page = store.read.decisions({ kinds: options.kind ?? [], since: from }, 0, Number(options.limit))
+    const page = store.read.decisions({ kinds: options.kind ?? [], since: from }, 0, options.limit)
     emit(cli, 'decision list', { decisions: page.items, more: page.more }, () => {
       if (!page.items.length) { line(`no decisions in the last ${options.since}`); return }
       table([['WHEN', 'THREAD', 'KIND', 'WHY'],

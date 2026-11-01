@@ -40,13 +40,13 @@ const label = (thread: Thread): string => {
   return typeof name === 'string' ? name : thread.key
 }
 
-export function threadList(cli: Cli, options: { source?: string; subscribed?: boolean; limit: string }): void {
+export function threadList(cli: Cli, options: { source?: string; subscribed?: boolean; limit: number }): void {
   const store = openForRead(cli)
   try {
     const threads = (options.subscribed ? store.read.subscribedThreads(options.source) : store.threads.list())
       .filter(thread => !options.source || thread.ref.source === options.source)
     const counts = store.read.triggerCounts()
-    const rows = threads.slice(0, Number(options.limit))
+    const rows = threads.slice(0, options.limit)
 
     emit(cli, 'thread list', { threads: rows.map(thread => ({
       key: thread.key, label: label(thread), triggers: counts[thread.key] ?? 0, lastAt: thread.lastAt,
@@ -60,12 +60,12 @@ export function threadList(cli: Cli, options: { source?: string; subscribed?: bo
   } finally { store.close() }
 }
 
-export function threadShow(cli: Cli, key: string, options: { limit: string }): void {
+export function threadShow(cli: Cli, key: string, options: { limit: number }): void {
   const store = openForRead(cli)
   try {
     const thread = store.threads.get(key)
     if (!thread) throw new CliError('not_found', `no thread ${key}`, 'list them with: pi-superagent thread list')
-    const triggers = store.read.threadTriggers(key, Number(options.limit))
+    const triggers = store.read.threadTriggers(key, options.limit)
     const decisions = store.decisions.byThread(key)
 
     emit(cli, 'thread show', { thread, triggers, decisions }, () => {

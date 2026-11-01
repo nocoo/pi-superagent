@@ -2,7 +2,6 @@
  * when the process is down — which is the case where a supervisor most needs an answer. */
 import { ticketStage, type Ticket, type TicketStage } from '../../core/index.ts'
 import { policyVersion } from '../../policy.ts'
-import { CliError } from '../errors.ts'
 import { openForRead, locked } from '../context.ts'
 import { age, clip, count, emit, line, short, table, type Cli } from '../output.ts'
 
@@ -94,11 +93,4 @@ export function status(cli: Cli, options: { check?: boolean }): void {
       line(`policy ${policy.version.slice(0, 8)} · accept ${policy.mode} · ${count(policy.rules, 'rule')} · ${count(policy.allowed, 'allowed login')}`)
     })
   } finally { store.close() }
-}
-
-/** Shared guard for commands that need a deployment to answer anything. */
-export function requireConfigured(store: ReturnType<typeof openForRead>): void {
-  if (!Object.keys(store.settings().sources).length) {
-    throw new CliError('not_configured', 'this instance has no deployment', 'configure one with: pi-superagent config set --repository owner/name')
-  }
 }

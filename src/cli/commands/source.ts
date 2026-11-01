@@ -33,7 +33,7 @@ export function source(cli: Cli): void {
         lastAt: seen?.lastAt,
         repository: typeof config.repository === 'string' ? config.repository : undefined,
         observes: OBSERVES.filter(([key]) => config[key] === true).map(([, label]) => label),
-        cursor: config,
+        config,
       }
     })
     const dropped = store.read.droppedSince(since)

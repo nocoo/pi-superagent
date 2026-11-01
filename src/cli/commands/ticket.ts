@@ -26,10 +26,10 @@ function outcome(ticket: Ticket): string {
   return assignment ? assignment.state : 'no assignment'
 }
 
-export function ticketList(cli: Cli, options: { stage?: string; all?: boolean; limit: string }): void {
+export function ticketList(cli: Cli, options: { stage?: string; all?: boolean; limit: number }): void {
   const store = openForRead(cli)
   try {
-    const limit = Number(options.limit)
+    const limit = options.limit
     const all = options.all ? store.tickets.list() : store.tickets.open()
     const wanted = options.stage as (typeof STAGES)[number] | undefined
     if (wanted && !STAGES.includes(wanted)) throw new CliError('usage', `--stage ${wanted} is not one of ${STAGES.join(', ')}`)
@@ -119,12 +119,12 @@ const WAITABLE = STAGES
  * Blocks until the ticket reaches `--until`, for a script that asked for work and wants the answer. The store is re-read
  * on every poll, so a Ticket another process advances is seen without reopening the database.
  */
-export async function ticketWait(cli: Cli, id: string, options: { until?: string; timeout?: string; interval?: string }): Promise<void> {
+export async function ticketWait(cli: Cli, id: string, options: { until?: string; timeout?: number; interval?: number }): Promise<void> {
   const until = (options.until ?? 'ended') as (typeof STAGES)[number]
   if (!WAITABLE.includes(until)) throw new CliError('usage', `--until ${until} is not one of ${WAITABLE.join(', ')}`)
-  const timeout = options.timeout === undefined ? Infinity : Number(options.timeout)
-  if (!(timeout > 0)) throw new CliError('usage', `--timeout must be a positive number of milliseconds`)
-  const interval = Math.max(50, Number(options.interval ?? 500))
+  const timeout = options.timeout ?? Infinity
+  if (!(timeout > 0)) throw new CliError('usage', '--timeout must be a positive number of milliseconds')
+  const interval = Math.max(50, options.interval ?? 500)
 
   const first = openForRead(cli)
   let ticket: Ticket
@@ -152,7 +152,7 @@ export async function ticketWait(cli: Cli, id: string, options: { until?: string
 interface Rendered { role: string; text: string }
 
 /** Reads the worker's session file, which is the only place an agent's actual work is visible. */
-export function ticketRead(cli: Cli, id: string, options: { lines: string }): void {
+export function ticketRead(cli: Cli, id: string, options: { lines: number }): void {
   const store = openForRead(cli)
   let ticket: Ticket
   try { ticket = findTicket(store, id) } finally { store.close() }
@@ -162,7 +162,7 @@ export function ticketRead(cli: Cli, id: string, options: { lines: string }): vo
       'the ticket has not been launched yet, or its directory was removed')
   }
   const messages = render(readFileSync(file, 'utf8'))
-  const shown = messages.slice(-Number(options.lines))
+  const shown = messages.slice(-options.lines)
   emit(cli, 'ticket read', { ticket: ticket.id, messages: shown }, () => {
     if (!shown.length) { line('the worker session has no messages yet'); return }
     for (const message of shown) {

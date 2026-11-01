@@ -121,10 +121,9 @@ function apply(settings: Settings, options: Record<string, unknown>): Settings {
   }
   if (typeof options.model === 'string') next.executor.model = { ...roleModel(options.model, '--model'), ...effort(next.executor.model) }
   if (typeof options.assessModel === 'string') next.eval.model = { ...roleModel(options.assessModel, '--assess-model'), ...effort(next.eval.model) }
-  if (typeof options.maxWorkers === 'string') {
-    const value = Number(options.maxWorkers)
-    if (!Number.isInteger(value) || value < 1) throw new CliError('usage', `--max-workers must be a whole number of at least 1, not ${options.maxWorkers}`)
-    next.executor.maxWorkers = value
+  if (typeof options.maxWorkers === 'number') {
+    if (options.maxWorkers < 1) throw new CliError('usage', `--max-workers must be at least 1, not ${options.maxWorkers}`)
+    next.executor.maxWorkers = options.maxWorkers
   }
   if (typeof options.prepare === 'string') next.executor.prepare = options.prepare
   const imFlags = ['im', 'imAgent', 'imObserved', 'imAllowed'] as const
@@ -145,10 +144,9 @@ function apply(settings: Settings, options: Record<string, unknown>): Settings {
   }
   if (typeof options.model === 'string') next.executor.model = { ...roleModel(options.model, '--model'), ...effort(next.executor.model) }
   if (typeof options.assessModel === 'string') next.eval.model = { ...roleModel(options.assessModel, '--assess-model'), ...effort(next.eval.model) }
-  if (typeof options.maxWorkers === 'string') {
-    const value = Number(options.maxWorkers)
-    if (!Number.isInteger(value) || value < 1) throw new CliError('usage', `--max-workers must be a whole number of at least 1, not ${options.maxWorkers}`)
-    next.executor.maxWorkers = value
+  if (typeof options.maxWorkers === 'number') {
+    if (options.maxWorkers < 1) throw new CliError('usage', `--max-workers must be at least 1, not ${options.maxWorkers}`)
+    next.executor.maxWorkers = options.maxWorkers
   }
   if (typeof options.prepare === 'string') next.executor.prepare = options.prepare
   if (options.im === true) {

@@ -3,7 +3,7 @@
  * docs/005-cli.md for the design. Conventions: data on stdout, everything else on stderr, `--json` for scripts, exit 2
  * for a wrong invocation and 1 for a right one whose answer is no.
  */
-import { Command, CommanderError } from 'commander'
+import { Command, CommanderError, InvalidArgumentError } from 'commander'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { packageRoot } from './prompts.ts'
@@ -21,6 +21,19 @@ import { run } from './cli/commands/run.ts'
 import { chat } from './cli/commands/chat.ts'
 
 const version = (): string => (JSON.parse(readFileSync(join(packageRoot(), 'package.json'), 'utf8')) as { version: string }).version
+
+/**
+ * Option parsers. Commander turns a rejected one into a usage error, so a bad value fails before the command runs and
+ * the message names what was expected, in one place rather than in each handler.
+ */
+const integer = (value: string): number => {
+  if (!/^\d+$/.test(value)) throw new InvalidArgumentError('a whole number')
+  return Number(value)
+}
+const oneOf = (...choices: string[]) => (value: string): string => {
+  if (!choices.includes(value)) throw new InvalidArgumentError(`one of ${choices.join(', ')}`)
+  return value
+}
 
 /** The name of the command being run, for the `command` field of JSON output and error objects. */
 let invoked = 'pi-superagent'
@@ -82,12 +95,12 @@ thread.command('list')
   .description('list threads')
   .option('--source <source>', 'only this Source')
   .option('--subscribed', 'only threads a Ticket subscribes to')
-  .option('--limit <n>', 'how many to show', '20')
-  .action(wrap((cli, options: { source?: string; subscribed?: boolean; limit: string }) => threadList(cli, options)))
+  .option('--limit <n>', 'how many to show', integer, 20)
+  .action(wrap((cli, options: { source?: string; subscribed?: boolean; limit: number }) => threadList(cli, options)))
 thread.command('show <thread>')
   .description('one thread, its Triggers in time order, and what became of each')
-  .option('--limit <n>', 'how many Triggers to show', '30')
-  .action(wrap((cli, key: string, options: { limit: string }) => threadShow(cli, key, options)))
+  .option('--limit <n>', 'how many Triggers to show', integer, 30)
+  .action(wrap((cli, key: string, options: { limit: number }) => threadShow(cli, key, options)))
 
 program.command('trigger')
   .description('one Trigger and where it went')
@@ -100,8 +113,8 @@ decision.command('list')
   .description('list decisions')
   .option('--kind <kind...>', 'only these kinds: accept, stop, ignore, unavailable')
   .option('--since <duration>', 'only decisions about Triggers newer than this, such as 24h or 7d', '24h')
-  .option('--limit <n>', 'how many to show', '20')
-  .action(wrap((cli, options: { kind?: string[]; since: string; limit: string }) => decisionList(cli, options)))
+  .option('--limit <n>', 'how many to show', integer, 20)
+  .action(wrap((cli, options: { kind?: string[]; since: string; limit: number }) => decisionList(cli, options)))
 decision.command('show <decision>')
   .description('one decision: why, which rules matched, and the direction it judged')
   .action(wrap((cli, id: string) => decisionShow(cli, id)))
@@ -109,23 +122,23 @@ decision.command('show <decision>')
 const ticket = group('ticket', 'authorized work')
 ticket.command('list')
   .description('list tickets, grouped by the stage that decides whom they wait for')
-  .option('--stage <stage>', 'person, working, idle or ended')
+  .option('--stage <stage>', 'person, working, idle or ended', oneOf('person', 'working', 'idle', 'ended'))
   .option('--all', 'include ended tickets')
-  .option('--limit <n>', 'how many to show', '30')
-  .action(wrap((cli, options: { stage?: string; all?: boolean; limit: string }) => ticketList(cli, options)))
+  .option('--limit <n>', 'how many to show per group', integer, 30)
+  .action(wrap((cli, options: { stage?: string; all?: boolean; limit: number }) => ticketList(cli, options)))
 ticket.command('show <ticket>')
   .description('one ticket: its mandate, assignments and inputs')
   .action(wrap((cli, id: string) => ticketShow(cli, id)))
 ticket.command('wait <ticket>')
   .description('block until the ticket reaches a stage')
-  .option('--until <stage>', 'person, working, idle or ended', 'ended')
-  .option('--timeout <ms>', 'how long to wait before failing')
-  .option('--interval <ms>', 'how often to re-read', '500')
-  .action(wrap((cli, id: string, options: { until?: string; timeout?: string; interval?: string }) => ticketWait(cli, id, options)))
+  .option('--until <stage>', 'person, working, idle or ended', oneOf('person', 'working', 'idle', 'ended'), 'ended')
+  .option('--timeout <ms>', 'how long to wait before failing', integer)
+  .option('--interval <ms>', 'how often to re-read', integer, 500)
+  .action(wrap((cli, id: string, options: { until?: string; timeout?: number; interval?: number }) => ticketWait(cli, id, options)))
 ticket.command('read <ticket>')
   .description("the worker's own conversation")
-  .option('--lines <n>', 'how many messages to show', '40')
-  .action(wrap((cli, id: string, options: { lines: string }) => ticketRead(cli, id, options)))
+  .option('--lines <n>', 'how many messages to show', integer, 40)
+  .action(wrap((cli, id: string, options: { lines: number }) => ticketRead(cli, id, options)))
 
 // Configuring
 
@@ -142,7 +155,7 @@ config.command('set')
   .option('--mode <mode>', 'off, observe or auto')
   .option('--model <route>', 'worker model, as provider/model')
   .option('--assess-model <route>', 'assessment model, as provider/model')
-  .option('--max-workers <n>', 'how many tickets may run at once')
+  .option('--max-workers <n>', 'how many tickets may run at once', integer)
   .option('--prepare <command>', 'shell command that creates a ticket directory')
   .option('--im', 'enable the local IM Source')
   .option('--im-agent <name>', 'the name the agent speaks as in the IM')
@@ -162,8 +175,8 @@ program.command('chat <channel>')
   .option('--send <text>', 'write one message and exit')
   .option('--as <name>', 'send as this name (default: your OS user)')
   .option('--reply-to <id>', 'answer this message id')
-  .option('--lines <n>', 'how much history to show when opening', '20')
-  .action(wrap((cli, channel: string, options: { send?: string; as?: string; replyTo?: string; lines: string }) => chat(cli, channel, options)))
+  .option('--lines <n>', 'how much history to show when opening', integer, 20)
+  .action(wrap((cli, channel: string, options: { send?: string; as?: string; replyTo?: string; lines: number }) => chat(cli, channel, options)))
 
 program.command('run')
   .description('start the agent')

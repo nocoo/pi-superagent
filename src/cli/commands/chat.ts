@@ -31,7 +31,7 @@ function show(message: ImMessage): void {
 }
 
 export async function chat(cli: Cli, channelName: string, options: {
-  send?: string; as?: string; replyTo?: string; lines?: string
+  send?: string; as?: string; replyTo?: string; lines?: number
 }): Promise<void> {
   const channel = checkChannel(channelName)
   const store = new ImStore(`${cli.stateDir}/im`)
@@ -56,7 +56,7 @@ export async function chat(cli: Cli, channelName: string, options: {
   const history = store.messages(channel)
   const shown = new Set(history.map(message => message.id))
   if (!cli.json) {
-    const recent = history.slice(-Number(options.lines ?? 20))
+    const recent = history.slice(-(options.lines ?? 20))
     for (const message of recent) show(message)
     line(`— ${channel} · ${from}${recent.length < history.length ? ` · ${history.length - recent.length} earlier` : ''} —`)
   } else {
