@@ -1,7 +1,7 @@
 /** `decision`: what an Eval concluded, and the two judgements behind it — rule matches and direction. */
 import { reasonText, type Decision } from '../../core/index.ts'
 import { CliError } from '../errors.ts'
-import { openForRead, resolveId } from '../context.ts'
+import { openForRead } from '../context.ts'
 import { age, clip, count, emit, line, short, table, type Cli } from '../output.ts'
 import { findTrigger } from './trigger.ts'
 
@@ -50,10 +50,29 @@ export function decisionList(cli: Cli, options: { kind?: string[]; since: string
   } finally { store.close() }
 }
 
+/** A decision by its own id, or by the Trigger it judged — the id a person is more likely to have. */
+function find(store: ReturnType<typeof openForRead>, id: string): Decision {
+  const byDecision = store.read.recentDecisions(0, 500).filter(item => item.id.startsWith(id))
+  if (byDecision.length === 1) return byDecision[0]!
+  if (byDecision.length > 1) {
+    throw new CliError('ambiguous_id', `${byDecision.length} decisions match ${id}: ${byDecision.slice(0, 5).map(item => item.id.slice(0, 12)).join(', ')}`)
+  }
+  // Not a decision id: the person may be holding a Trigger id from `thread show`.
+  const trigger = store.read.triggersByPrefix(id, 5)
+  if (trigger.length === 1) {
+    const decided = store.triggers.disposition(trigger[0]!.id)?.decisionId
+    const decision = decided ? store.decisions.get(decided) : undefined
+    if (decision) return decision
+    throw new CliError('not_found', `trigger ${id} has no decision`, 'it may be waiting for an Eval; see: pi-superagent thread show')
+  }
+  if (trigger.length > 1) throw new CliError('ambiguous_id', `${trigger.length} triggers match ${id}`)
+  throw new CliError('not_found', `no decision or trigger matches ${id}`)
+}
+
 export function decisionShow(cli: Cli, id: string): void {
   const store = openForRead(cli)
   try {
-    const decision = resolveId(id, store.read.recentDecisions(0, 500), item => item.id, 'decision')
+    const decision = find(store, id)
     const ticket = decision.ticketId ? store.tickets.get(decision.ticketId) : undefined
 
     emit(cli, 'decision show', { decision, ticket }, () => {

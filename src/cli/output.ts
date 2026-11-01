@@ -31,20 +31,16 @@ export function table(rows: string[][], gap = 2): void {
   }
 }
 
-/** Formats a moment as a short age: `41s ago`, `3 minutes ago`, `2 days ago`. */
+/** Formats a moment as a short age: `41s ago`, `3m ago`, `2h ago`, `5d ago`. Compact so a column of them lines up. */
 export function age(iso: string | undefined, now = Date.now()): string {
   if (!iso) return '—'
   const then = Date.parse(iso)
   if (!Number.isFinite(then)) return iso
   const seconds = Math.max(0, Math.round((now - then) / 1000))
-  const text = (value: number, unit: string): string => {
-    const rounded = Math.round(value)
-    return `${rounded} ${unit}${rounded === 1 ? '' : 's'} ago`
-  }
-  if (seconds < 60) return text(seconds, 'second')
-  if (seconds < 3_600) return text(seconds / 60, 'minute')
-  if (seconds < 86_400) return text(seconds / 3_600, 'hour')
-  return text(seconds / 86_400, 'day')
+  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 3_600) return `${Math.round(seconds / 60)}m ago`
+  if (seconds < 86_400) return `${Math.round(seconds / 3_600)}h ago`
+  return `${Math.round(seconds / 86_400)}d ago`
 }
 
 /** Shortens an identifier for human output; `--json` always prints the whole one. */

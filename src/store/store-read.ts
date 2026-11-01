@@ -73,6 +73,9 @@ export function storeReads(db: DatabaseSync) {
   droppedReplies: (limit = 20): Dropped[] =>
     values('SELECT value FROM outbox WHERE dropped IS NOT NULL ORDER BY dropped DESC LIMIT ?', limit),
   droppedSince: (since: string): number => Number(db.prepare('SELECT COUNT(*) AS n FROM outbox WHERE dropped >= ?').get(since)?.n ?? 0),
+  /** Triggers whose id starts with `prefix`, over the whole table, newest first. */
+  triggersByPrefix: (prefix: string, limit = 20): Trigger[] =>
+    values("SELECT value FROM trigger WHERE id LIKE ? ESCAPE '\\' ORDER BY at DESC LIMIT ?", `${prefix.replace(/[\\%_]/g, match => `\\${match}`)}%`, limit),
   /** How many Triggers each Thread holds, for the thread list. */
   triggerCounts: (): Record<string, number> => {
     const counts: Record<string, number> = {}

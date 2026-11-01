@@ -112,6 +112,42 @@ const time = (iso: string): string => {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(5, 19).replace('T', ' ') : iso
 }
 
+/** The stages `wait` accepts, in the order of the engineering table. */
+const WAITABLE = STAGES
+
+/**
+ * Blocks until the ticket reaches `--until`, for a script that asked for work and wants the answer. The store is re-read
+ * on every poll, so a Ticket another process advances is seen without reopening the database.
+ */
+export async function ticketWait(cli: Cli, id: string, options: { until?: string; timeout?: string; interval?: string }): Promise<void> {
+  const until = (options.until ?? 'ended') as (typeof STAGES)[number]
+  if (!WAITABLE.includes(until)) throw new CliError('usage', `--until ${until} is not one of ${WAITABLE.join(', ')}`)
+  const timeout = options.timeout === undefined ? Infinity : Number(options.timeout)
+  if (!(timeout > 0)) throw new CliError('usage', `--timeout must be a positive number of milliseconds`)
+  const interval = Math.max(50, Number(options.interval ?? 500))
+
+  const first = openForRead(cli)
+  let ticket: Ticket
+  try { ticket = findTicket(first, id) } finally { first.close() }
+
+  const deadline = Date.now() + timeout
+  for (;;) {
+    const store = openForRead(cli)
+    let current: Ticket | undefined
+    try { current = store.tickets.get(ticket.id) } finally { store.close() }
+    if (!current) throw new CliError('not_found', `ticket ${short(ticket.id)} is gone`)
+    const stage = ticketStage(current).stage
+    if (stage === until) {
+      emit(cli, 'ticket wait', { ticket: current, stage }, () => line(`${short(current!.id)}  ${stage}  ${outcome(current!)}`))
+      return
+    }
+    if (Date.now() >= deadline) {
+      throw new CliError('failed', `${short(ticket.id)} is ${stageName(current)}, not ${until} after ${timeout} ms`)
+    }
+    await new Promise(resolve => setTimeout(resolve, interval))
+  }
+}
+
 /** One message of a worker's conversation, as rendered for a person. */
 interface Rendered { role: string; text: string }
 

@@ -4,15 +4,15 @@ import { openForRead } from '../context.ts'
 import { emit, line, table, type Cli } from '../output.ts'
 import { dispositionOf } from './thread.ts'
 
-/** Finds a Trigger by any unambiguous prefix of its id. */
+/** Finds a Trigger by any unambiguous prefix of its id, over every Trigger ever received. */
 export function findTrigger(store: ReturnType<typeof openForRead>, prefix: string) {
-  const recent = store.read.recentTriggers(0, 500)
-  const exact = recent.find(trigger => trigger.id === prefix)
+  if (prefix.length < 4) throw new CliError('usage', `trigger ${prefix} is too short to identify anything`, 'use at least four characters, or run thread show')
+  const found = store.read.triggersByPrefix(prefix)
+  const exact = found.find(trigger => trigger.id === prefix)
   if (exact) return exact
-  const found = recent.filter(trigger => trigger.id.startsWith(prefix))
   if (found.length === 1) return found[0]!
-  if (!found.length) throw new CliError('not_found', `no trigger matches ${prefix}`, 'the 500 most recent are searched; list a thread to find older ones')
-  throw new CliError('ambiguous_id', `${found.length} triggers match ${prefix}`)
+  if (!found.length) throw new CliError('not_found', `no trigger matches ${prefix}`)
+  throw new CliError('ambiguous_id', `${found.length} triggers match ${prefix}: ${found.slice(0, 5).map(trigger => trigger.id.slice(0, 12)).join(', ')}`)
 }
 
 export function triggerShow(cli: Cli, id: string): void {
