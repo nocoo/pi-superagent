@@ -99,8 +99,31 @@ This agent was first run against its own repository, which is the cheapest end-t
 | Explicit path in `auto` mode | ticket, worktree, Pi worker, one-line fix, `pnpm check` green, PR opened and closed |
 | A worker with nothing to do | reported `dropped` with the evidence instead of inventing a change |
 
-It found two real defects, both fixed and described in [Retrospective.md](Retrospective.md): the assessor's tool was
-disabled by its own allowlist, and the agent read its own comments because the CLI never resolved its account.
+### Mid-turn steering, measured
+
+`pnpm build && node scripts/probe-steer.ts` builds a ticket whose worker creates six files one at a time with a pause
+between them, then corrects it while it works. The session file shows where the correction landed:
+
+```
+… assistant[bash] | toolResult | assistant[bash] | toolResult | assistant[bash] | toolResult
+| user <<< CORRECTION
+| assistant[bash] | toolResult | assistant[report] | …
+```
+
+The correction sits **inside the running turn, between tool calls**, not after it settles. The worker stopped creating
+files and reported ready, and only `a.txt` and `b.txt` exist. That is the promise the Pi session is used for: a person's
+correction costs one message, not a wait for the agent to finish being wrong.
+
+### Defects the runs found
+
+All fixed; [Retrospective.md](Retrospective.md) has the reasoning.
+
+- The assessor's `decide` tool was disabled by the assessment's own tool allowlist.
+- The agent read its own comments, because the CLI never resolved its account, so every acknowledgement woke its ticket.
+- Every launch started a new session instead of resuming: Pi names session files after a timestamp and id, so the path
+  this project expected was never the path Pi wrote.
+- A verdict the Policy rejected ended the whole assessment; validation now runs inside the tool so the model can correct
+  itself in the same conversation.
 
 ## Status
 

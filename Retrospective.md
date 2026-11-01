@@ -38,3 +38,28 @@ degrade gracefully; it turns every outbound message into an inbound one.
   inventing a change.
 - The one real defect it was given produced a correct one-line fix, verified with the repository's own
   `pnpm typecheck`, `pnpm test` and `pnpm build`, and opened as a pull request without touching anything else.
+
+### 3. Every launch started a fresh conversation
+
+`PiSessions.ensure` decided whether to resume by checking `existsSync(<sessionDir>/<id>.jsonl)`. Pi's
+`SessionManager.create(cwd, dir)` names the file after a timestamp and a UUID, so that path never existed: every launch
+created a new session and the "one persistent session per ticket" claim in the README was false. It went unnoticed
+because a ticket that is accepted once and reports once looks identical either way.
+
+Fixed with `sessionManager.setSessionFile(path)`, which pins the file. Note that `setSessionFile` writes nothing until
+the conversation has messages, so a quick file-existence check right after it proves nothing — test the roundtrip.
+
+**Lesson:** a claim about persistence is only true if a restart has been observed, not if the code looks like it reads
+the right path.
+
+### 4. The assessor could not correct itself
+
+`assessmentOutcome` validated the model's verdict *after* the session ended, so a single mistake — judging the wrong
+number of rules — threw away the whole assessment and recorded `unavailable`. The original design validates inside the
+tool for exactly this reason: a tool failure is an error result the model reads and can fix.
+
+Fixed by validating in the `decide` tool's `execute`. The first run after the change produced an accept instead of
+`unavailable` on the same input.
+
+**Lesson:** anywhere a model produces structured output against rules, validate at the point where the model can still
+see the error. Post-hoc validation turns a small mistake into a lost round trip.
