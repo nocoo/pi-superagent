@@ -3,6 +3,7 @@
 import { parseArgs } from 'node:util'
 import { mkdirSync } from 'node:fs'
 import { Host } from './runtime/host.ts'
+import { resolveAccount } from './config.ts'
 import { githubKind } from './sources/github.ts'
 import { policyVersion, type Settings } from './policy.ts'
 import { Store } from './store/store.ts'
@@ -80,7 +81,8 @@ async function run(argv: string[]): Promise<void> {
   const repository = values.repository
   if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('--repository OWNER/NAME is required')
   mkdirSync(stateDir, { recursive: true, mode: 0o700 })
-  const host = new Host({ stateDir, deployment: { repository, github: { cli: values['github-cli'] ?? 'gh', login: '', noreply: '' } } })
+  const github = await resolveAccount(values['github-cli'] ?? 'gh')
+  const host = new Host({ stateDir, deployment: { repository, github: { cli: values['github-cli'] ?? 'gh', login: github.login, noreply: github.noreply } } })
   const before = host.settings()
   const after = settingsFrom(before, values)
   if (JSON.stringify(after) !== JSON.stringify(before)) {
@@ -91,7 +93,7 @@ async function run(argv: string[]): Promise<void> {
   const shutdown = (): void => { void host.stop().then(() => process.exit(0)) }
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
-  console.log(`pi-superagent is watching ${repository}; state in ${stateDir}`)
+  console.log(`pi-superagent is watching ${repository} as @${github.login}; state in ${stateDir}`)
   await new Promise<void>(() => { setInterval(() => {}, 1 << 30) })
 }
 

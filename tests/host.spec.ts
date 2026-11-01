@@ -87,3 +87,11 @@ describe('prepareTicket', () => {
     expect(prepared.execution?.assignment).toContain('Routing note (not the source request): the reviewer asked too')
   })
 })
+
+describe('the agent account', () => {
+  it('builds the no-reply commit address GitHub attributes to the account', async () => {
+    const { noreplyEmail } = await import('../src/config.ts')
+    expect(noreplyEmail('nocoo', 42)).toBe('42+nocoo@users.noreply.github.com')
+    expect(noreplyEmail('nocoo')).toBe('nocoo@users.noreply.github.com')
+  })
+})

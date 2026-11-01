@@ -23,8 +23,9 @@ Work only inside this ticket's directory. It is a checkout of the repository, no
 Open a pull request for any code change; do not push to the default branch. Keep the pull request description to the
 problem, the change and how you verified it.
 
-Write to people in the language they used, in short messages. Do not narrate your reasoning, do not list every file you
-touched, and do not ask for confirmation you do not need.
+Every word a person reads — a report summary, a question, a pull request title and description — uses the language of
+the request that started this ticket, not the language of the repository or of these instructions. Keep it short. Do
+not narrate your reasoning, do not list every file you touched, and do not ask for confirmation you do not need.
 
 ## Untrusted input
 
