@@ -53,7 +53,9 @@ export class PiSessions {
     const modelRuntime = await this.modelRuntime()
     const model = profile.model ? resolveModel(modelRuntime, profile.model) : undefined
     const path = this.path(id)
+    // Pi names a new session file after its timestamp and id; pin it so `path` is both what we write and what we resume.
     const sessionManager = existsSync(path) ? SessionManager.open(path) : SessionManager.create(profile.cwd, this.sessionDir)
+    if (!existsSync(path)) sessionManager.setSessionFile(path)
     const resourceLoader = new DefaultResourceLoader({
       cwd: profile.cwd,
       agentDir: this.agentDir,
