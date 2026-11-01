@@ -1,0 +1,11 @@
+{
+  "name": "ledger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A small expense ledger: reads a CSV of transactions and reports a month.",
+  "scripts": {
+    "check": "node tests/all.test.ts",
+    "report": "node src/cli.ts report"
+  }
+}
