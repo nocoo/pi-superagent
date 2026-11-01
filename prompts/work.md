@@ -16,6 +16,12 @@ Report when the state changes, and always before you stop working:
 - `blocked` with one concrete question when only a person can unblock you.
 - `failed` when you could not finish, or `dropped` when there is nothing to do after all.
 
+## When a message is not this ticket's work
+
+A conversation may carry several requests. When a message asks for something outside this ticket's scope, use the
+`handback` tool with its trigger id instead of doing it: it becomes a candidate for a ticket of its own, and this ticket
+stops receiving it. Doing it yourself would attach unrelated work to this ticket's mandate.
+
 ## How to work
 
 Work only inside this ticket's directory. It is a checkout of the repository, not the operator's working copy.

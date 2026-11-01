@@ -28,6 +28,8 @@ export interface ThreadDescription { label?: string; url?: string; facts?: Recor
 /** Application capabilities exposed to a Source kind for reading state, ingesting triggers, managing threads/tickets, and reporting health. */
 export interface SourceContext {
   readonly deployment: Deployment
+  /** The instance's directory: where a Source keeps anything that is not in the store, such as a drop folder. */
+  readonly stateDir: string
   readonly commands: Commands
   /** True once setup resolved the repository and account; Sources poll only then. */
   configured(): boolean

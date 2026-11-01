@@ -14,7 +14,7 @@ export interface SourceChannel<C> {
    * Sends a message idempotently by ID; returns `'gone'` when the target conversation no longer accepts replies.
    * @throws when delivery failed but may succeed on a later retry.
    */
-  send(host: Pick<SourceContext, 'commands'>, message: OutboundMessage): Promise<'sent' | 'gone'>
+  send(host: Pick<SourceContext, 'commands' | 'stateDir'>, message: OutboundMessage): Promise<'sent' | 'gone'>
 }
 
 /** Policy extension for a source kind, defining allowed senders and the admission table rows that scope them. */

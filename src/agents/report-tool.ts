@@ -41,3 +41,26 @@ Set question to ask a person one concrete thing; the ticket then waits for their
     },
   })
 }
+
+/**
+ * The worker-facing `handback` tool: a message reached this ticket but asks for work the ticket's mandate does not
+ * cover. Handing it back queues it for a fresh Eval, which is how a second request in the same channel becomes a ticket
+ * of its own instead of being absorbed by the first.
+ */
+export function handbackTool(submit: (triggerId: string) => boolean) {
+  return defineTool({
+    name: 'handback',
+    label: 'Hand back',
+    description: `Hand a message back because it asks for work outside this ticket's scope. Use it when a message in this conversation
+is a different request rather than part of this ticket's work. It then becomes a candidate for a ticket of its own, and this
+ticket stops receiving it. Do not use it for a message that is within scope.`,
+    parameters: Type.Object({
+      trigger_id: Type.String({ minLength: 1, description: 'The id shown as [trigger <id>] above the message.' }),
+      reason: Type.String({ minLength: 1, maxLength: 300, description: 'Why it is beyond this ticket, in one short sentence.' }),
+    }, { additionalProperties: false }),
+    execute: async (_id, params) => {
+      const queued = submit(params.trigger_id)
+      return { content: [{ type: 'text' as const, text: queued ? 'Handed back; it will be assessed as its own request.' : 'Handed back.' }], details: {} }
+    },
+  })
+}

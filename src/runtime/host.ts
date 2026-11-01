@@ -68,7 +68,7 @@ export class Host implements SourceHost {
     this.effects = new Effects(this.store, this.health)
     this.sources = new SourceRegistry(() => this.settings())
     this.outbox = new Outbox({ store: this.store, effects: this.effects, sources: this.sources, commands: this.commands,
-      paused: () => this.settings().paused })
+      stateDir, paused: () => this.settings().paused })
     this.sessions = new PiSessions(join(stateDir, 'sessions'))
     this.executor = new PiExecutor({
       engine: engineOf(this), store: this.store, effects: this.effects, sessions: this.sessions,
@@ -144,6 +144,7 @@ export class Host implements SourceHost {
     }
     return {
       deployment: this.options.deployment,
+      stateDir: this.options.stateDir,
       commands: this.commands,
       configured: () => true,
       config: <C extends Record<string, unknown>>(id: string) => {

@@ -24,6 +24,8 @@ export const KV = {
   /** Settings: current revision and saved settings snapshots (including the current one). */
   settings: { revision: record<number>('settings-revision'), block: family<number, [block: SettingsSave]>('settings-block-revision:'),
     version: family<SettingsVersion, [revision: number]>('settings-version:') },
+  /** The local IM: how far each channel has been read, in bytes. */
+  im: { offset: family<number, [channel: string]>('im-offset:') },
   /**
    * GitHub Source: notification cursor, per-stream cursor with its start times and ETag, default-branch CI state, and
    * per-pull-request CI fingerprint and revision (`revision` counts reported CI changes so each is a distinct Trigger ID).

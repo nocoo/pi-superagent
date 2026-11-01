@@ -39,7 +39,11 @@ export function configShow(cli: Cli): void {
         ['account', account ? `@${account.login} via ${github?.cli ?? 'gh'}` : 'resolved when the agent starts'],
         ['state', cli.stateDir],
       ])
-      line()
+      if (settings.sources.im?.enabled) {
+        const im = settings.sources.im.config as { agent?: string; observed?: string[] }
+        table([['im', `agent @${im.agent ?? 'agent'} · observes ${im.observed?.length ? im.observed.join(', ') : 'nothing unaddressed'}`]])
+        line()
+      }
       table([
         ['policy', `${policyVersion(settings).slice(0, 8)} · accept ${settings.eval.mode} · ${enabled.length} rules`
           + ` · ${Object.values(settings.policy.sources).reduce((total, part) => total + (part.allowed?.length ?? 0), 0)} allowed`],
@@ -88,25 +92,28 @@ export function configSet(cli: Cli, options: Record<string, unknown>): void {
 /** Applies the flags over the stored settings, leaving every field they do not name untouched. */
 function apply(settings: Settings, options: Record<string, unknown>): Settings {
   const next = structuredClone(settings)
-  const github = (next.sources.github ??= { enabled: true, config: {} })
-  const config = github.config as Record<string, unknown>
-  github.enabled = true
-
-  if (typeof options.repository === 'string') {
-    if (!/^[\w.-]+\/[\w.-]+$/.test(options.repository)) {
-      throw new CliError('usage', `--repository must be owner/name, not ${options.repository}`)
+  // A Source is enabled only by a flag that concerns it, so configuring one never switches another one on.
+  const githubFlags = ['repository', 'allowed', 'addAllowed', 'removeAllowed'] as const
+  if (githubFlags.some(flag => options[flag] !== undefined)) {
+    const github = (next.sources.github ??= { enabled: true, config: {} })
+    github.enabled = true
+    const config = github.config as Record<string, unknown>
+    if (typeof options.repository === 'string') {
+      if (!/^[\w.-]+\/[\w.-]+$/.test(options.repository)) {
+        throw new CliError('usage', `--repository must be owner/name, not ${options.repository}`)
+      }
+      config.repository = options.repository
     }
-    config.repository = options.repository
-  }
-  const part = (next.policy.sources.github ??= { allowed: [], admission: {} })
-  const logins = part.allowed ?? []
-  if (Array.isArray(options.allowed)) part.allowed = (options.allowed as string[]).map(id => ({ id }))
-  if (Array.isArray(options.addAllowed)) {
-    const added = (options.addAllowed as string[]).filter(id => !logins.some(entry => entry.id === id)).map(id => ({ id }))
-    part.allowed = [...logins, ...added]
-  }
-  if (Array.isArray(options.removeAllowed)) {
-    part.allowed = logins.filter(entry => !(options.removeAllowed as string[]).includes(entry.id))
+    const part = (next.policy.sources.github ??= { allowed: [], admission: {} })
+    const logins = part.allowed ?? []
+    if (Array.isArray(options.allowed)) part.allowed = (options.allowed as string[]).map(id => ({ id }))
+    if (Array.isArray(options.addAllowed)) {
+      const added = (options.addAllowed as string[]).filter(id => !logins.some(entry => entry.id === id)).map(id => ({ id }))
+      part.allowed = [...logins, ...added]
+    }
+    if (Array.isArray(options.removeAllowed)) {
+      part.allowed = logins.filter(entry => !(options.removeAllowed as string[]).includes(entry.id))
+    }
   }
   if (typeof options.mode === 'string') {
     if (!['off', 'observe', 'auto'].includes(options.mode)) throw new CliError('usage', `--mode ${options.mode} is not off, observe or auto`)
@@ -120,6 +127,41 @@ function apply(settings: Settings, options: Record<string, unknown>): Settings {
     next.executor.maxWorkers = value
   }
   if (typeof options.prepare === 'string') next.executor.prepare = options.prepare
+  const imFlags = ['im', 'imAgent', 'imObserved', 'imAllowed'] as const
+  if (imFlags.some(flag => options[flag] !== undefined)) {
+    const im = (next.sources.im ??= { enabled: true, config: {} })
+    im.enabled = true
+    const imConfig = im.config as Record<string, unknown>
+    if (typeof options.imAgent === 'string') imConfig.agent = options.imAgent
+    if (Array.isArray(options.imObserved)) imConfig.observed = options.imObserved as string[]
+    if (Array.isArray(options.imAllowed)) {
+      const part = (next.policy.sources.im ??= { allowed: [], admission: {} })
+      part.allowed = (options.imAllowed as string[]).map(id => ({ id }))
+    }
+  }
+  if (typeof options.mode === 'string') {
+    if (!['off', 'observe', 'auto'].includes(options.mode)) throw new CliError('usage', `--mode ${options.mode} is not off, observe or auto`)
+    next.eval.mode = options.mode as Settings['eval']['mode']
+  }
+  if (typeof options.model === 'string') next.executor.model = { ...roleModel(options.model, '--model'), ...effort(next.executor.model) }
+  if (typeof options.assessModel === 'string') next.eval.model = { ...roleModel(options.assessModel, '--assess-model'), ...effort(next.eval.model) }
+  if (typeof options.maxWorkers === 'string') {
+    const value = Number(options.maxWorkers)
+    if (!Number.isInteger(value) || value < 1) throw new CliError('usage', `--max-workers must be a whole number of at least 1, not ${options.maxWorkers}`)
+    next.executor.maxWorkers = value
+  }
+  if (typeof options.prepare === 'string') next.executor.prepare = options.prepare
+  if (options.im === true) {
+    const im = (next.sources.im ??= { enabled: true, config: {} })
+    im.enabled = true
+    const imConfig = im.config as Record<string, unknown>
+    if (typeof options.imAgent === 'string') imConfig.agent = options.imAgent
+    if (Array.isArray(options.imObserved)) imConfig.observed = options.imObserved as string[]
+    if (Array.isArray(options.imAllowed)) {
+      const part = (next.policy.sources.im ??= { allowed: [], admission: {} })
+      part.allowed = (options.imAllowed as string[]).map(id => ({ id }))
+    }
+  }
   if (options.pause === true) next.paused = true
   if (options.resume === true) next.paused = false
   return SettingsSchema.parse(next)
@@ -147,8 +189,35 @@ function diff(before: Settings, after: Settings): Change[] {
   compare('max-workers', before.executor.maxWorkers, after.executor.maxWorkers)
   compare('prepare', before.executor.prepare, after.executor.prepare)
   compare('paused', before.paused, after.paused)
+  compare('im', before.sources.im?.enabled, after.sources.im?.enabled)
+  const wasIm = before.sources.im?.config as Record<string, unknown> | undefined
+  const nowIm = after.sources.im?.config as Record<string, unknown> | undefined
+  compare('im-obs', wasIm?.observed as string[] | undefined, nowIm?.observed as string[] | undefined)
+  compare('im-allowed', before.policy.sources.im?.allowed.map(entry => entry.id), after.policy.sources.im?.allowed.map(entry => entry.id))
+  compare('rules', rulesOf(before), rulesOf(after))
+  compare('admission', admissionOf(before), admissionOf(after))
+  compare('bots', botsOf(before), botsOf(after))
+  // Anything the named comparisons do not cover still has to be reported, so an edit can never be dropped silently.
+  if (!changes.length && JSON.stringify(before) !== JSON.stringify(after)) {
+    changes.push({ field: 'settings', before: 'as stored', after: 'changed' })
+  }
   return changes
 }
+
+/** Rules as a person reads them: the id and whether it is on. */
+const rulesOf = (settings: Settings): string[] =>
+  settings.policy.rules.map(rule => `${rule.id}${rule.enabled ? '' : ' (off)'}`)
+
+/** The admission table, flattened to `source row cell=choice`. */
+const admissionOf = (settings: Settings): string[] =>
+  Object.entries(settings.policy.sources).flatMap(([source, part]) =>
+    Object.entries(part.admission ?? {}).flatMap(([row, cells]) =>
+      Object.entries(cells ?? {}).map(([cell, choice]) => `${source} ${row} ${cell}=${String(choice)}`)))
+
+/** The bots whose messages may become candidates, per Source. */
+const botsOf = (settings: Settings): string[] =>
+  Object.entries(settings.policy.sources).flatMap(([source, part]) =>
+    ((part as { bots?: { id: string }[] }).bots ?? []).map(bot => `${source}:${bot.id}`))
 
 const route = (model: { provider: string; model: string } | null | undefined): string | undefined =>
   model ? `${model.provider}/${model.model}` : undefined
@@ -173,7 +242,8 @@ export function configEdit(cli: Cli): void {
   const file = join(directory, 'settings.json')
   writeFileSync(file, `${JSON.stringify(before, null, 2)}\n`)
   try {
-    const result = spawnSync(editor, [file], { stdio: 'inherit' })
+    // Through a shell, so an $EDITOR that carries arguments (`code -w`, `vim -u NONE`) still works.
+    const result = spawnSync('sh', ['-c', `${editor} "$1"`, 'sh', file], { stdio: 'inherit' })
     if (result.status !== 0) throw new CliError('failed', `the editor exited with ${result.status ?? 'no status'}; nothing written`)
     const edited = readFileSync(file, 'utf8')
     let parsed: unknown

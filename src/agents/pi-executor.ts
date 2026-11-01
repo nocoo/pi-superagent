@@ -7,7 +7,8 @@
  */
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import { join } from 'node:path'
-import { liveTicket, runningAssignment, type Assignment, type Executor, type Ticket, type TicketInput, type Trigger } from '../core/index.ts'
+import { liveTicket, runningAssignment, type Assignment, type Executor, type Ticket, type TicketInput, type Trigger,
+  type WorkerReport } from '../core/index.ts'
 import type { EngineForExecutor } from '../core/index.ts'
 import type { Store } from '../store/store.ts'
 import type { Effects } from '../runtime/effects.ts'
@@ -16,14 +17,14 @@ import type { HealthEntry } from '../infra/health.ts'
 import type { Deployment } from '../config.ts'
 import type { Settings } from '../policy.ts'
 import { executionRoot, environmentOf, executionVariables, prepare } from './environment.ts'
-import { reportTool } from './report-tool.ts'
+import { handbackTool, reportTool } from './report-tool.ts'
 import type { PiSessions } from './sessions.ts'
 import { prompt } from '../prompts.ts'
 
 /** Host dependencies used by `PiExecutor`. */
 export interface ExecutorHost {
   readonly engine: Pick<EngineForExecutor, 'assignmentStarted' | 'inputsDelivered' | 'inputsRead' | 'turnEnded' | 'deliveryFailed'
-    | 'report' | 'assignmentInterrupted'>
+    | 'report' | 'assignmentInterrupted' | 'reply' | 'handback'>
   readonly store: Pick<Store, 'tickets' | 'triggers' | 'settings'>
   readonly effects: Pick<Effects, 'enqueue' | 'handle'>
   readonly sessions: PiSessions
@@ -140,14 +141,40 @@ export class PiExecutor implements Executor {
       cwd,
       model: settings.executor.model ? `${settings.executor.model.provider}/${settings.executor.model.model}` : undefined,
       thinkingLevel: settings.executor.model?.reasoningEffort as never,
-      customTools: [reportTool(
-        report => { this.host.engine.report(ticket.id, report) },
-        () => ticket.origin.triggerId,
-      )],
+      customTools: [
+        reportTool(report => { this.report(ticket, report) }, () => ticket.origin.triggerId),
+        handbackTool(triggerId => {
+          const queued = this.host.engine.handback(ticket.id, triggerId, 'beyond this ticket')
+          return queued
+        }),
+      ],
       instructions: this.instructions(ticket),
     })
     session.subscribe(event => { this.onEvent(ticket.id, assignmentId, event) })
     return session
+  }
+
+  /**
+   * Records a worker's report and, when it says something a person must see, sends it to the conversation the ticket came
+   * from. This build has no separate routing session, so the Executor owns that message: a `ready` or `dropped` report is
+   * the ticket's result, and a question is the ticket's attention.
+   */
+  private report(ticket: Ticket, report: WorkerReport): void {
+    try {
+      this.host.engine.report(ticket.id, report)
+      const stored = this.host.store.tickets.get(ticket.id)
+      if (!stored) return
+      if (stored.attention && report.state !== 'progress' && report.state !== 'waiting') {
+        this.host.engine.reply({ purpose: 'attention', ticketId: ticket.id, question: stored.attention.question, text: stored.attention.question })
+      }
+      if (report.state === 'ready' || report.state === 'dropped') {
+        this.host.engine.reply({ purpose: 'result', ticketId: ticket.id, text: report.summary })
+      }
+    } catch (error) {
+      // A refused report or reply leaves the ticket as it was; the worker still sees the tool result below.
+      process.stderr.write(`report for ${ticket.id} was refused: ${error instanceof Error ? error.message : String(error)}\n`)
+      throw error
+    }
   }
 
   /** The per-ticket instructions: the shared work prompt plus what this ticket's mandate allows. */
@@ -236,7 +263,8 @@ export class PiExecutor implements Executor {
   private triggerText(trigger: Trigger | undefined, input: { human?: true; context?: true; note?: string }): string {
     if (!trigger) return ''
     const lines = [
-      `${trigger.human ? 'A person' : 'A machine'} wrote this on ${trigger.threads[0]?.id ?? 'the thread'}${trigger.url ? ` (${trigger.url})` : ''}:`,
+      `${trigger.human ? 'A person' : 'A machine'} wrote this on ${trigger.threads[0]?.id ?? 'the thread'}${trigger.url ? ` (${trigger.url})` : ''}`
+        + ` [trigger ${trigger.id}]:`,
       trigger.text,
     ]
     if (input.context) lines.push('(It reached this ticket only as context on a related thread; it grants nothing.)')

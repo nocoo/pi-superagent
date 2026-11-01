@@ -18,6 +18,7 @@ import { decisionList, decisionShow } from './cli/commands/decision.ts'
 import { ticketList, ticketRead, ticketShow } from './cli/commands/ticket.ts'
 import { configEdit, configSet, configShow } from './cli/commands/config.ts'
 import { run } from './cli/commands/run.ts'
+import { chat } from './cli/commands/chat.ts'
 
 const version = (): string => (JSON.parse(readFileSync(join(packageRoot(), 'package.json'), 'utf8')) as { version: string }).version
 
@@ -126,6 +127,10 @@ config.command('set')
   .option('--assess-model <route>', 'assessment model, as provider/model')
   .option('--max-workers <n>', 'how many tickets may run at once')
   .option('--prepare <command>', 'shell command that creates a ticket directory')
+  .option('--im', 'enable the local IM Source')
+  .option('--im-agent <name>', 'the name the agent speaks as in the IM')
+  .option('--im-observed <channel...>', 'channels whose unaddressed messages are candidates')
+  .option('--im-allowed <name...>', 'names that may originate work in the IM')
   .option('--pause', 'stop starting new work')
   .option('--resume', 'start new work again')
   .option('--dry-run', 'print what would change and write nothing')
@@ -134,6 +139,14 @@ config.command('set')
 config.command('edit')
   .description('edit the stored settings in $EDITOR; parts flags cannot express')
   .action(wrap(cli => configEdit(cli)))
+
+program.command('chat <channel>')
+  .description('open the local IM channel, or write one message with --send')
+  .option('--send <text>', 'write one message and exit')
+  .option('--as <name>', 'send as this name (default: your OS user)')
+  .option('--reply-to <id>', 'answer this message id')
+  .option('--lines <n>', 'how much history to show when opening', '20')
+  .action(wrap((cli, channel: string, options: { send?: string; as?: string; replyTo?: string; lines: string }) => chat(cli, channel, options)))
 
 program.command('run')
   .description('start the agent')

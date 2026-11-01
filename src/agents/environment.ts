@@ -20,7 +20,7 @@ export function executionVariables(ticket: Ticket, trigger: Trigger | undefined,
     { key: 'PI_SUPERAGENT_DIR', value: directory, description: 'This ticket\'s directory; work only inside it.' },
     { key: 'PI_SUPERAGENT_NAME', value: ticket.execution?.name ?? ticket.id, description: 'This ticket\'s short name.' },
     { key: 'PI_SUPERAGENT_TICKET', value: ticket.id, description: 'This ticket\'s id.' },
-    { key: 'PI_SUPERAGENT_GITHUB_REPOSITORY', value: repository, description: 'The repository this agent works on, as owner/name.' },
+    ...repository ? [{ key: 'PI_SUPERAGENT_GITHUB_REPOSITORY', value: repository, description: 'The repository this agent works on, as owner/name.' }] : [],
     ...typeof trigger?.meta.number === 'number'
       ? [{ key: 'PI_SUPERAGENT_GITHUB_NUMBER', value: String(trigger.meta.number), description: 'The Issue or pull request that started this ticket.' }]
       : [],
