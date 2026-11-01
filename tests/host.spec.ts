@@ -95,3 +95,40 @@ describe('the agent account', () => {
     expect(noreplyEmail('nocoo')).toBe('nocoo@users.noreply.github.com')
   })
 })
+
+describe('recovery', () => {
+  const ticket = { id: 't1', title: 'work', decisionId: 'd1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    channels: [], inputs: [], undelivered: [], origin: { triggerId: 'a', triggerIds: ['a'] },
+    mandate: { strength: 'explicit', policyVersion: 'v', scope: 's', actor: { source: 'github', id: 'alice' }, basis: { via: 'addressed', addressed: 'mention' } },
+    assignments: [{ id: 'a1', state: 'running', createdAt: '2026-01-01T00:00:01.000Z', startedAt: '2026-01-01T00:00:02.000Z' }] } as Ticket
+
+  it('restarts an assignment that was mid-flight when the host stopped', async () => {
+    const dir = stateDir()
+    const first = host(dir)
+    first.store.tickets.save(ticket)
+    await first.stop()
+
+    // Paused, so recovery is observable without the launcher then trying to run a real worker.
+    const second = host(dir)
+    second.store.saveSettings({ paused: true }, { source: 'internal', block: 'policy', policyVersion: 'v', policyChanged: false, notified: [] })
+    second.start()
+    const after = second.store.tickets.get('t1')!
+    expect(after.assignments).toHaveLength(2)
+    expect(after.assignments[0]!.state).toBe('ended')
+    expect(after.assignments[0]!.endedReason).toMatch(/restart/i)
+    expect(after.assignments[1]!.state).toBe('pending')
+  })
+
+  it('leaves an assignment that already reported a state a person must see', async () => {
+    const dir = stateDir()
+    const first = host(dir)
+    first.store.tickets.save({ ...ticket, assignments: [{ ...ticket.assignments[0]!, state: 'running',
+      report: { state: 'ready', summary: 'done', at: '2026-01-01T00:00:03.000Z' } }] } as Ticket)
+    await first.stop()
+
+    const second = host(dir)
+    second.store.saveSettings({ paused: true }, { source: 'internal', block: 'policy', policyVersion: 'v', policyChanged: false, notified: [] })
+    second.start()
+    expect(second.store.tickets.get('t1')!.assignments).toHaveLength(1)
+  })
+})

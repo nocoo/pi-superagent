@@ -104,8 +104,22 @@ export class Host implements SourceHost {
   /** Opens the store's loops and starts the coordination passes. */
   start(): void {
     this.started = true
+    this.recover()
     this.effects.start()
     this.passes.start()
+  }
+
+  /**
+   * Reports the Assignments that were mid-flight when the host stopped, so the Engine restarts them with a recovery
+   * note. Without this a crash leaves its Tickets in `working` with an Assignment nothing will ever run.
+   */
+  private recover(): void {
+    for (const ticket of this.store.tickets.active()) {
+      const assignment = ticket.assignments.at(-1)
+      if (!assignment || assignment.state === 'ended') continue
+      try { this.engine.assignmentInterrupted(ticket.id, assignment.id) }
+      catch (error) { console.error('could not recover ticket %s: %s', ticket.id, String(error)) }
+    }
   }
 
   /** Stops the passes, drains effects, closes worker sessions, and releases the state lock. */
