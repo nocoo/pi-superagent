@@ -15,7 +15,7 @@ const USAGE = `pi-superagent — a proactive agent for one repository
 
 run options
   --github-cli NAME     the gh wrapper signed in to the agent account (default: gh)
-  --prepare COMMAND     shell command that creates a ticket's directory (default: git worktree)
+  --prepare COMMAND     shell command that creates a ticket's directory (default: none, an empty directory)
   --model PROVIDER/MODEL  worker model (default: Pi's configured default)
   --assess-model PROVIDER/MODEL  assessment model (default: the worker model)
   --max-workers N       concurrent tickets (default: 3)
