@@ -76,6 +76,7 @@ export class PiAssessor implements Assessor {
   /** Runs one assessment session and returns what it recorded. */
   private async run(candidate: Candidate, settings: Settings): Promise<Assessment> {
     let recorded: Assessment | undefined
+    let last = ''
     const tool = defineTool({
       name: 'decide',
       label: 'Decide',
@@ -111,18 +112,22 @@ export class PiAssessor implements Assessor {
       modelRuntime,
       resourceLoader,
       sessionManager: SessionManager.inMemory(),
-      tools: [],
+      // Built-in tools stay off so an assessment cannot act; the `decide` tool is a custom tool and remains enabled.
+      noTools: 'builtin',
       customTools: [tool],
       ...settings.eval.model ? { model: resolveRoute(modelRuntime, settings.eval.model) } : {},
     })
     const timeout = setTimeout(() => { void session.abort() }, settings.eval.timeoutSeconds * 1000)
     try {
-      await session.prompt(this.candidatePrompt(candidate, settings))
+      await session.prompt(this.candidatePrompt(candidate, settings)).finally(() => { last = session.getLastAssistantText() ?? '' })
     } finally {
       clearTimeout(timeout)
       session.dispose()
     }
-    if (!recorded) throw new Error('The assessment ended without a decision')
+    if (!recorded) {
+      const said = last.trim()
+      throw new Error(`The assessment ended without a decision${said ? `: ${said.slice(0, 500)}` : ''}`)
+    }
     return recorded
   }
 
