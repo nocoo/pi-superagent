@@ -83,7 +83,18 @@ own `gh` as `--github-cli`.
 
 ## Architecture
 
-[docs/architecture.md](docs/architecture.md) has the layer map and the port boundary.
+Read the numbered documents in order; each builds only on the ones before it.
+
+- [000 Philosophy](docs/000-philosophy.md)
+- [001 Domain model](docs/001-domain.md)
+- [002 Authorization](docs/002-authorization.md)
+- [003 Execution](docs/003-execution.md)
+- [004 Prompts](docs/004-prompts.md)
+- [005 CLI](docs/005-cli.md)
+- [006 Deployment](docs/006-deployment.md)
+- [007 Architecture](docs/007-architecture.md)
+- [008 Cookbook](docs/008-cookbook.md): adding a Source
+
 `pnpm check` runs the typecheck, the tests and the build.
 
 ## Bootstrap evidence
