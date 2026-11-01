@@ -18,6 +18,7 @@ import type { Settings } from '../policy.ts'
 import { executionRoot, environmentOf, executionVariables, prepare } from './environment.ts'
 import { reportTool } from './report-tool.ts'
 import type { PiSessions } from './sessions.ts'
+import { prompt } from '../prompts.ts'
 
 /** Host dependencies used by `PiExecutor`. */
 export interface ExecutorHost {
@@ -148,7 +149,7 @@ export class PiExecutor implements Executor {
     return session
   }
 
-  /** The per-ticket instructions: what the ticket is for, what its mandate allows, and how it must report. */
+  /** The per-ticket instructions: the shared work prompt plus what this ticket's mandate allows. */
   private instructions(ticket: Ticket): string {
     const mandate = ticket.mandate
     const limited = mandate.strength === 'inferred'
@@ -157,13 +158,13 @@ export class PiExecutor implements Executor {
         + 'or anything outside that scope, stop and report `dropped`; do not expand the scope.'
       : 'This ticket answers an explicit request, which dispatch routed.'
     return [
+      prompt('work'),
       `## This ticket`,
-      `You work on one ticket: ${ticket.title}.`,
+      `Title: ${ticket.title}`,
       `Scope: ${mandate.scope}`,
       limited,
-      `Report through the \`report\` tool; the conversation itself changes nothing about the ticket.`,
-      `Work only inside this ticket's directory. Open a pull request for code changes, then report \`ready\` with its number.`,
-    ].join('\n')
+      `The repository is ${this.host.deployment.repository}.`,
+    ].join('\n\n')
   }
 
   private onEvent(ticketId: string, assignmentId: string, event: { type: string }): void {
