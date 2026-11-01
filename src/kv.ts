@@ -26,7 +26,8 @@ export const KV = {
    * GitHub Source: notification cursor, per-stream cursor with its start times and ETag, default-branch CI state, and
    * per-pull-request CI fingerprint and revision (`revision` counts reported CI changes so each is a distinct Trigger ID).
    */
-  github: { since: record<string>('github-since'),
+  github: { since: record<string>('github-since'), retries: record<Record<string, { since: string; pr: boolean; failedAt?: string; attempts?: number }>>('github-retry'),
+    cursor: family<string, [number: number]>('github-cursor:'),
     stream: family<{ since: string; started: Record<string, string>; etag?: string }, [stream: string]>('github-stream:'),
     branchCi: record<{ branch?: string; failures?: string[]; revision: number }>('github-branch-ci'),
     ci: family<{ fingerprint: string; revision: number }, [number: number]>('github-ci:') },
