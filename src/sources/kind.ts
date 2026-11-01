@@ -1,12 +1,10 @@
-/** Source kind contract: configuration schema, listening rule, channel adapter, thread context reader, and environment. */
+/** Source kind contract: configuration schema, listening rule, channel adapter, and the loop that produces Triggers. */
 import type { z } from 'zod'
-import type { OutboundMessage, ScopeResult, Trigger } from '../core/index.ts'
+import type { OutboundMessage, ScopeResult } from '../core/index.ts'
 import type { Commands } from '../infra/commands.ts'
 import type { SourceContext, SourceHost } from './host.ts'
 
 export interface Localized { zh: string; en: string }
-
-export interface VariableSpec { key: string; description: Localized }
 
 /** Outbound messaging adapter for a source kind's threads. */
 export interface SourceChannel<C> {
@@ -41,8 +39,6 @@ export interface SourceKind<C extends Record<string, unknown> = Record<string, u
   channel?: SourceChannel<C>
   /** Policy section for kinds whose senders have their own identity. */
   policy?: SourcePolicyPart
-  /** Variables the kind registers with the execution environment and how their values are computed. */
-  environment?: { variables: readonly VariableSpec[]; values(input: { config: C; trigger?: Trigger }): Record<string, string> }
   /** Runs the kind's loops against `host` until the returned stop function is called. */
   start(host: SourceHost, instance: SourceInstance<C>): () => void
 }
