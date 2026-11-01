@@ -58,18 +58,60 @@ executor uses Pi's `session.steer()` rather than queueing a follow-up for the ne
 - A follow-up would wait for the whole run to settle, which is the wrong behaviour for a
   correction.
 
-## Status
-
-Minimal MVP: GitHub only, one closed loop from trigger to pull request. Not yet ported: the web
-panel, Feishu, speculative execution, compute/storage separation, the watchdog, and A2A between
-replicas.
-
-## Setup
+## Run it
 
 ```sh
 pnpm install
-pnpm check
+pnpm build
+
+# First run writes settings; later runs reuse them.
+node lib/cli.js run \
+  --state-dir ~/.pi-superagent/state \
+  --repository owner/name \
+  --allowed your-github-login \
+  --prepare 'git worktree add "$PI_SUPERAGENT_DIR" -b "agent/$PI_SUPERAGENT_NAME" origin/main'
+
+node lib/cli.js status --state-dir ~/.pi-superagent/state
 ```
+
+`run` starts with `eval.mode: observe`, which assesses proactive candidates and records what it
+would have accepted without accepting anything. Explicit requests — a listed login mentioning the
+agent — work in every mode. Switch to `auto` once the recorded decisions look right.
+
+The agent acts as the `gh` it is given; it never uses your own credentials unless you pass your
+own `gh` as `--github-cli`.
+
+## Architecture
+
+[docs/architecture.md](docs/architecture.md) has the layer map and the port boundary.
+`pnpm check` runs the typecheck, the tests and the build.
+
+## Status
+
+An MVP, not a port. One closed loop: a GitHub trigger becomes a ticket, a Pi session works in a
+ticket directory, and the ticket records what it reports.
+
+Ported unchanged from the original: the domain model and Engine, the authorization layer (gate,
+strength, Mandate, revalidation, admission matrix, policy version and its effects), the SQLite
+store, the effect queue, the outbox, and the GitHub source with its polling loops and CI
+observation.
+
+Replaced: DeepSeek Harness entirely. No `@deepseek-ai/*` import remains.
+
+Not yet ported, in rough order of how much they matter:
+
+| Missing | Was in the original |
+| --- | --- |
+| The web panel | `src/client/`, ~4000 lines of React over the DSH web shell |
+| Feishu as a second Source | live events, history recovery, topic polling, images |
+| Explicit-request routing | a routing session that decides accept, attach, stop or ignore before any assessment; this MVP accepts a listed sender's addressed request directly |
+| Background jobs | a shell command moved to a background job after 5s, its end waking the worker without holding its slot |
+| Speculative execution | work started in the background before it is known to be wanted |
+| Compute/storage separation, the watchdog, A2A between replicas | article sections 5 and 6, never implemented in the original either |
+
+The `Engine`, `Repositories` and `Policy` contracts are still synchronous and single-writer, so one
+process owns one state directory. That is deliberate for an MVP and is the first thing a
+multi-replica deployment has to change.
 
 ## License
 
