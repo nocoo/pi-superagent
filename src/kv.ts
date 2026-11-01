@@ -19,6 +19,8 @@ export function family<V, A extends unknown[] = [string]>(prefix: string, format
 export const KV = {
   /** Store: current database schema version. */
   store: { schema: record<number>('schema') },
+  /** Runtime facts a read command needs but must not re-derive, such as the account the agent acts as. */
+  runtime: { account: record<{ login: string; noreply: string }>('runtime-account') },
   /** Settings: current revision and saved settings snapshots (including the current one). */
   settings: { revision: record<number>('settings-revision'), block: family<number, [block: SettingsSave]>('settings-block-revision:'),
     version: family<SettingsVersion, [revision: number]>('settings-version:') },

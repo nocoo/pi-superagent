@@ -1,126 +1,168 @@
-#!/usr/bin/env node
-/** Command line entry: `run` starts the agent, `status` prints what it is doing. */
-import { parseArgs } from 'node:util'
-import { mkdirSync } from 'node:fs'
-import { Host } from './runtime/host.ts'
-import { resolveAccount } from './config.ts'
-import { githubKind } from './sources/github.ts'
-import { policyVersion, type Settings } from './policy.ts'
-import { Store } from './store/store.ts'
+/**
+ * The command line, which is this agent's primary surface. Everything a supervisor needs is answered here; see
+ * docs/005-cli.md for the design. Conventions: data on stdout, everything else on stderr, `--json` for scripts, exit 2
+ * for a wrong invocation and 1 for a right one whose answer is no.
+ */
+import { Command, CommanderError } from 'commander'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { packageRoot } from './prompts.ts'
+import { CliError, EXIT, UsageError } from './cli/errors.ts'
+import type { Cli } from './cli/output.ts'
+import { stateDirPath } from './cli/context.ts'
+import { status } from './cli/commands/status.ts'
+import { source } from './cli/commands/source.ts'
+import { threadList, threadShow } from './cli/commands/thread.ts'
+import { triggerShow } from './cli/commands/trigger.ts'
+import { decisionList, decisionShow } from './cli/commands/decision.ts'
+import { ticketList, ticketRead, ticketShow } from './cli/commands/ticket.ts'
+import { configEdit, configSet, configShow } from './cli/commands/config.ts'
+import { run } from './cli/commands/run.ts'
 
-const USAGE = `pi-superagent — a proactive agent for one repository
+const version = (): string => (JSON.parse(readFileSync(join(packageRoot(), 'package.json'), 'utf8')) as { version: string }).version
 
-  pi-superagent run    --state-dir DIR --repository OWNER/NAME [--allowed LOGIN]... [options]
-  pi-superagent status --state-dir DIR
+/** The name of the command being run, for the `command` field of JSON output and error objects. */
+let invoked = 'pi-superagent'
 
-run options
-  --github-cli NAME     the gh wrapper signed in to the agent account (default: gh)
-  --prepare COMMAND     shell command that creates a ticket's directory (default: none, an empty directory)
-  --model PROVIDER/MODEL  worker model (default: Pi's configured default)
-  --assess-model PROVIDER/MODEL  assessment model (default: the worker model)
-  --max-workers N       concurrent tickets (default: 3)
-
-The first run writes settings; later runs reuse them and only apply the options they are given.`
-
-/** Reads repeatable and single-valued options from argv. */
-function options(argv: string[]) {
-  const { values, positionals } = parseArgs({
-    args: argv,
-    allowPositionals: true,
-    options: {
-      'state-dir': { type: 'string' },
-      repository: { type: 'string' },
-      allowed: { type: 'string', multiple: true },
-      'github-cli': { type: 'string' },
-      prepare: { type: 'string' },
-      model: { type: 'string' },
-      'assess-model': { type: 'string' },
-      'max-workers': { type: 'string' },
-    },
+const program = new Command()
+program
+  .name('pi-superagent')
+  .description('A proactive agent for one repository. Run `pi-superagent <command>` to inspect it.')
+  .version(version(), '-V, --version', 'print the version')
+  .option('--state-dir <dir>', 'instance directory (default: $PI_SUPERAGENT_STATE_DIR or ~/.pi-superagent/state)')
+  .option('--json', 'print one JSON object instead of prose')
+  .showHelpAfterError()
+  .exitOverride()
+  .hook('preAction', (_program, action) => {
+    const path: string[] = []
+    // Stop before the root program, so the name is `ticket list` rather than `pi-superagent ticket list`.
+    for (let command: Command | null = action; command?.parent; command = command.parent) path.unshift(command.name())
+    invoked = path.join(' ')
   })
-  return { command: positionals[0], values }
+
+/** Reads the global flags, which commander exposes to every subcommand. */
+const context = (command: Command): Cli => {
+  const options = command.optsWithGlobals() as { stateDir?: string; json?: boolean }
+  return { stateDir: stateDirPath(options.stateDir), json: options.json === true }
 }
 
-/** Splits `provider/model` into the Policy's role model shape. */
-function roleModel(route: string | undefined) {
-  if (!route) return null
-  const slash = route.indexOf('/')
-  if (slash <= 0) throw new Error(`--model must be PROVIDER/MODEL, not ${route}`)
-  return { provider: route.slice(0, slash), model: route.slice(slash + 1) }
-}
-
-/** Applies the options given on the command line over the stored settings. */
-function settingsFrom(stored: Settings, values: ReturnType<typeof options>['values']): Settings {
-  const github = stored.sources.github
-  const config = { ...(github?.config ?? {}) }
-  const allowed = values.allowed?.map(id => ({ id })) ?? stored.policy.sources.github?.allowed ?? []
-  const model = roleModel(values.model)
-  const assess = roleModel(values['assess-model'])
-  return {
-    ...stored,
-    sources: { ...stored.sources, github: { enabled: true, config } },
-    policy: {
-      ...stored.policy,
-      sources: { ...stored.policy.sources, github: { admission: {}, ...stored.policy.sources.github, allowed } },
-    },
-    eval: { ...stored.eval, ...assess ? { model: assess } : {} },
-    executor: {
-      ...stored.executor,
-      ...model ? { model } : {},
-      ...values.prepare !== undefined ? { prepare: values.prepare } : {},
-      ...values['max-workers'] ? { maxWorkers: Number(values['max-workers']) } : {},
-    },
+const wrap = <A extends unknown[]>(handler: (cli: Cli, ...args: A) => Promise<void> | void) =>
+  async (...args: A): Promise<void> => {
+    const command = args.at(-1) instanceof Command ? args.at(-1) as Command : undefined
+    await handler(context(command!), ...args)
   }
-}
 
-async function run(argv: string[]): Promise<void> {
-  const { values } = options(argv)
-  const stateDir = values['state-dir']
-  if (!stateDir) throw new Error('--state-dir is required')
-  const repository = values.repository
-  if (!repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error('--repository OWNER/NAME is required')
-  mkdirSync(stateDir, { recursive: true, mode: 0o700 })
-  const github = await resolveAccount(values['github-cli'] ?? 'gh')
-  const host = new Host({ stateDir, deployment: { repository, github: { cli: values['github-cli'] ?? 'gh', login: github.login, noreply: github.noreply } } })
-  const before = host.settings()
-  const after = settingsFrom(before, values)
-  if (JSON.stringify(after) !== JSON.stringify(before)) {
-    host.store.saveSettings(after, { source: 'internal', block: 'policy', policyVersion: policyVersion(after), policyChanged: false, notified: [] })
+// Reading the whole system
+
+program.command('status')
+  .description('what needs a person, then system health')
+  .option('--check', 'exit 1 when something needs a person')
+  .action(wrap((cli, options: { check?: boolean }) => status(cli, options)))
+
+program.command('source')
+  .description('the Sources: whether they run, what is arriving')
+  .action(wrap(cli => source(cli)))
+
+// Following one piece of work
+
+const thread = program.command('thread').description('Threads and their Triggers')
+thread.command('list')
+  .description('list threads')
+  .option('--source <source>', 'only this Source')
+  .option('--subscribed', 'only threads a Ticket subscribes to')
+  .option('--limit <n>', 'how many to show', '20')
+  .action(wrap((cli, options: { source?: string; subscribed?: boolean; limit: string }) => threadList(cli, options)))
+thread.command('show <thread>')
+  .description('one thread, its Triggers in time order, and what became of each')
+  .option('--limit <n>', 'how many Triggers to show', '30')
+  .action(wrap((cli, key: string, options: { limit: string }) => threadShow(cli, key, options)))
+
+program.command('trigger')
+  .description('one Trigger and where it went')
+  .command('show <trigger>')
+  .description('one Trigger in full, with its disposition')
+  .action(wrap((cli, id: string) => triggerShow(cli, id)))
+
+const decision = program.command('decision').description('what an Eval concluded and why')
+decision.command('list')
+  .description('list decisions')
+  .option('--kind <kind...>', 'only these kinds: accept, stop, ignore, unavailable')
+  .option('--since <duration>', 'only decisions about Triggers newer than this, such as 24h or 7d', '24h')
+  .option('--limit <n>', 'how many to show', '20')
+  .action(wrap((cli, options: { kind?: string[]; since: string; limit: string }) => decisionList(cli, options)))
+decision.command('show <decision>')
+  .description('one decision: why, which rules matched, and the direction it judged')
+  .action(wrap((cli, id: string) => decisionShow(cli, id)))
+
+const ticket = program.command('ticket').description('authorized work')
+ticket.command('list')
+  .description('list tickets, grouped by the stage that decides whom they wait for')
+  .option('--stage <stage>', 'person, working, idle or ended')
+  .option('--all', 'include ended tickets')
+  .option('--limit <n>', 'how many to show', '30')
+  .action(wrap((cli, options: { stage?: string; all?: boolean; limit: string }) => ticketList(cli, options)))
+ticket.command('show <ticket>')
+  .description('one ticket: its mandate, assignments and inputs')
+  .action(wrap((cli, id: string) => ticketShow(cli, id)))
+ticket.command('read <ticket>')
+  .description("the worker's own conversation")
+  .option('--lines <n>', 'how many messages to show', '40')
+  .action(wrap((cli, id: string, options: { lines: string }) => ticketRead(cli, id, options)))
+
+// Configuring
+
+const config = program.command('config').description('the deployment and the Policy')
+config.command('show', { isDefault: true })
+  .description('the deployment, the rules and the settings')
+  .action(wrap(cli => configShow(cli)))
+config.command('set')
+  .description('change one part of the configuration, printing what changed')
+  .option('--repository <owner/name>', 'the repository the agent works on')
+  .option('--allowed <login...>', 'replace the whole allowed list')
+  .option('--add-allowed <login...>', 'add logins to the allowed list')
+  .option('--remove-allowed <login...>', 'remove logins from the allowed list')
+  .option('--mode <mode>', 'off, observe or auto')
+  .option('--model <route>', 'worker model, as provider/model')
+  .option('--assess-model <route>', 'assessment model, as provider/model')
+  .option('--max-workers <n>', 'how many tickets may run at once')
+  .option('--prepare <command>', 'shell command that creates a ticket directory')
+  .option('--pause', 'stop starting new work')
+  .option('--resume', 'start new work again')
+  .option('--dry-run', 'print what would change and write nothing')
+  .option('--yes', 'do not refuse a change that removes authorized logins')
+  .action(wrap((cli, options: Record<string, unknown>) => configSet(cli, options)))
+config.command('edit')
+  .description('edit the stored settings in $EDITOR; parts flags cannot express')
+  .action(wrap(cli => configEdit(cli)))
+
+program.command('run')
+  .description('start the agent')
+  .option('--verbose', 'log every domain event')
+  .action(wrap((cli, options: { verbose?: boolean }) => run(cli, options)))
+
+/** Reports a failure in the shape the conventions promise, and returns the process status. */
+function report(error: unknown, json: boolean): number {
+  const known = error instanceof CliError ? error
+    : error instanceof UsageError ? new CliError('usage', error.message)
+      : undefined
+  if (known) {
+    if (json) process.stderr.write(`${JSON.stringify({ command: invoked, error: { code: known.code, message: known.message } })}\n`)
+    else process.stderr.write(`pi-superagent: ${known.message}\n${known.hint ? `  ${known.hint}\n` : ''}`)
+    return known.code === 'usage' ? EXIT.usage : EXIT.failed
   }
-  host.register(githubKind)
-  host.start()
-  const shutdown = (): void => { void host.stop().then(() => process.exit(0)) }
-  process.on('SIGINT', shutdown)
-  process.on('SIGTERM', shutdown)
-  console.log(`pi-superagent is watching ${repository} as @${github.login}; state in ${stateDir}`)
-  await new Promise<void>(() => { setInterval(() => {}, 1 << 30) })
+  const message = error instanceof Error ? error.message : String(error)
+  if (json) process.stderr.write(`${JSON.stringify({ command: invoked, error: { code: 'failed', message } })}\n`)
+  else process.stderr.write(`pi-superagent: ${message}\n`)
+  return EXIT.failed
 }
 
-function status(argv: string[]): void {
-  const { values } = options(argv)
-  const stateDir = values['state-dir']
-  if (!stateDir) throw new Error('--state-dir is required')
-  const store = new Store(join(stateDir, 'superagent.sqlite'))
-  try {
-    const settings = store.settings()
-    const open = store.tickets.open()
-    console.log(`policy ${policyVersion(settings)} · mode ${settings.eval.mode} · paused ${settings.paused}`)
-    console.log(`${open.length} open ticket(s)`)
-    for (const ticket of open) {
-      const assignment = ticket.assignments.at(-1)
-      console.log(`  ${ticket.id} ${ticket.title}\n    mandate ${ticket.mandate.strength} · ${assignment?.state ?? 'no assignment'}`
-        + `${assignment?.report ? ` · report ${assignment.report.state}: ${assignment.report.summary.slice(0, 120)}` : ''}`)
-    }
-  } finally { store.close() }
-}
-
-const { command } = options(process.argv.slice(2))
 try {
-  if (command === 'run') await run(process.argv.slice(2))
-  else if (command === 'status') status(process.argv.slice(2))
-  else { console.log(USAGE); process.exit(command ? 1 : 0) }
+  await program.parseAsync(process.argv)
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
+  if (error instanceof CommanderError) {
+    // Help and version are answers, not failures; commander has already printed them.
+    if (['commander.helpDisplayed', 'commander.help', 'commander.version'].includes(error.code)) process.exit(EXIT.ok)
+    process.exit(EXIT.usage)
+  }
+  process.exit(report(error, program.opts().json === true))
 }

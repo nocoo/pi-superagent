@@ -73,6 +73,26 @@ export function storeReads(db: DatabaseSync) {
   droppedReplies: (limit = 20): Dropped[] =>
     values('SELECT value FROM outbox WHERE dropped IS NOT NULL ORDER BY dropped DESC LIMIT ?', limit),
   droppedSince: (since: string): number => Number(db.prepare('SELECT COUNT(*) AS n FROM outbox WHERE dropped >= ?').get(since)?.n ?? 0),
+  /** How many Triggers each Thread holds, for the thread list. */
+  triggerCounts: (): Record<string, number> => {
+    const counts: Record<string, number> = {}
+    for (const row of db.prepare('SELECT thread, COUNT(*) AS n FROM trigger_thread GROUP BY thread').all()) counts[String(row.thread)] = Number(row.n ?? 0)
+    return counts
+  },
+  /** The effect queue by kind: how many rows wait, and how many have failed at least once. */
+  queue: (): { kind: string; waiting: number; failing: number; oldest: string | undefined }[] =>
+    db.prepare('SELECT kind, COUNT(*) AS waiting, SUM(attempts > 0) AS failing, MIN(since) AS oldest FROM effect GROUP BY kind ORDER BY kind')
+      .all().map(row => ({ kind: String(row.kind), waiting: Number(row.waiting ?? 0), failing: Number(row.failing ?? 0),
+        oldest: row.oldest === null || row.oldest === undefined ? undefined : String(row.oldest) })),
+  /** Outbox receipts by outcome: what still waits, what went out, and what can never be delivered. */
+  receipts: (): { pending: number; sent: number; dropped: number } => {
+    const row = db.prepare(`SELECT SUM(value ->> '$.status' = 'pending') AS pending,
+      SUM(value ->> '$.status' = 'sent') AS sent, SUM(value ->> '$.status' = 'dropped') AS dropped FROM outbox`).get()
+    return { pending: Number(row?.pending ?? 0), sent: Number(row?.sent ?? 0), dropped: Number(row?.dropped ?? 0) }
+  },
+  /** Decisions recorded as `unavailable` since `since` that nobody dismissed: work the agent could not judge. */
+  unavailable: (since: string): Decision[] => values(`SELECT value FROM decision WHERE json_extract(value, '$.kind') = 'unavailable'
+    AND json_extract(value, '$.at') >= ? AND json_extract(value, '$.dismissed') IS NULL ORDER BY rowid DESC`, since),
   subscribedThreads: (source?: string): Thread[] => source
     ? values('SELECT value FROM thread WHERE subscribed = ? ORDER BY rowid', source)
     // Force the partial index so SQLite does not scan the entire table in rowid order.

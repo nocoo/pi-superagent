@@ -20,7 +20,9 @@ const NotificationSchema = z.looseObject({
   repository: z.looseObject({ full_name: z.string() }), subject: z.looseObject({ url: z.string().nullish() }),
 })
 
-const GithubConfigSchema = z.object({ pollSeconds: z.number().int().min(60).max(3600).default(60),
+const GithubConfigSchema = z.object({ repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'Written owner/name'),
+  cli: z.string().default('gh'),
+  pollSeconds: z.number().int().min(60).max(3600).default(60),
   failuresBeforeError: z.number().int().min(1).max(20).default(3),
   observeIssues: z.boolean().default(false), observePulls: z.boolean().default(false), observeComments: z.boolean().default(false),
   observeCi: z.boolean().default(false) }).strict()
