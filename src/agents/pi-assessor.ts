@@ -93,7 +93,11 @@ export class PiAssessor implements Assessor {
         reason: Type.String({ maxLength: 500 }),
       }, { additionalProperties: false }),
       execute: async (_id, params) => {
-        recorded = params as unknown as Assessment
+        // Validate here, not after the session ends: a rejected verdict becomes an error result the model can correct
+        // inside the same conversation instead of losing the whole assessment.
+        const assessment = params as unknown as Assessment
+        assessmentOutcome(assessment, settings, candidate.strength)
+        recorded = assessment
         return { content: [{ type: 'text' as const, text: 'Recorded.' }], details: {} }
       },
     })
