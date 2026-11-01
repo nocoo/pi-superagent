@@ -22,8 +22,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build"
+    "test": "pnpm build && vitest run",
+    "check": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.4.0",
