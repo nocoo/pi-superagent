@@ -15,7 +15,7 @@ import { source } from './cli/commands/source.ts'
 import { threadList, threadShow } from './cli/commands/thread.ts'
 import { triggerShow } from './cli/commands/trigger.ts'
 import { decisionList, decisionShow } from './cli/commands/decision.ts'
-import { ticketList, ticketRead, ticketShow } from './cli/commands/ticket.ts'
+import { ticketList, ticketRead, ticketShow, ticketWait } from './cli/commands/ticket.ts'
 import { configEdit, configSet, configShow } from './cli/commands/config.ts'
 import { run } from './cli/commands/run.ts'
 import { chat } from './cli/commands/chat.ts'
@@ -34,12 +34,23 @@ program
   .option('--json', 'print one JSON object instead of prose')
   .showHelpAfterError()
   .exitOverride()
+  .action(() => { program.outputHelp() })
   .hook('preAction', (_program, action) => {
     const path: string[] = []
     // Stop before the root program, so the name is `ticket list` rather than `pi-superagent ticket list`.
     for (let command: Command | null = action; command?.parent; command = command.parent) path.unshift(command.name())
     invoked = path.join(' ')
   })
+
+/**
+ * Declares a command group. Naming a group on its own prints that group's commands on stdout and succeeds, so it is a
+ * question rather than a usage error — commander would otherwise print to stderr and treat it as a failure.
+ */
+const group = (name: string, description: string): Command => {
+  const command = program.command(name).description(description)
+  command.action(() => { command.outputHelp() })
+  return command
+}
 
 /** Reads the global flags, which commander exposes to every subcommand. */
 const context = (command: Command): Cli => {
@@ -66,7 +77,7 @@ program.command('source')
 
 // Following one piece of work
 
-const thread = program.command('thread').description('Threads and their Triggers')
+const thread = group('thread', 'Threads and their Triggers')
 thread.command('list')
   .description('list threads')
   .option('--source <source>', 'only this Source')
@@ -84,7 +95,7 @@ program.command('trigger')
   .description('one Trigger in full, with its disposition')
   .action(wrap((cli, id: string) => triggerShow(cli, id)))
 
-const decision = program.command('decision').description('what an Eval concluded and why')
+const decision = group('decision', 'what an Eval concluded and why')
 decision.command('list')
   .description('list decisions')
   .option('--kind <kind...>', 'only these kinds: accept, stop, ignore, unavailable')
@@ -95,7 +106,7 @@ decision.command('show <decision>')
   .description('one decision: why, which rules matched, and the direction it judged')
   .action(wrap((cli, id: string) => decisionShow(cli, id)))
 
-const ticket = program.command('ticket').description('authorized work')
+const ticket = group('ticket', 'authorized work')
 ticket.command('list')
   .description('list tickets, grouped by the stage that decides whom they wait for')
   .option('--stage <stage>', 'person, working, idle or ended')
@@ -105,6 +116,12 @@ ticket.command('list')
 ticket.command('show <ticket>')
   .description('one ticket: its mandate, assignments and inputs')
   .action(wrap((cli, id: string) => ticketShow(cli, id)))
+ticket.command('wait <ticket>')
+  .description('block until the ticket reaches a stage')
+  .option('--until <stage>', 'person, working, idle or ended', 'ended')
+  .option('--timeout <ms>', 'how long to wait before failing')
+  .option('--interval <ms>', 'how often to re-read', '500')
+  .action(wrap((cli, id: string, options: { until?: string; timeout?: string; interval?: string }) => ticketWait(cli, id, options)))
 ticket.command('read <ticket>')
   .description("the worker's own conversation")
   .option('--lines <n>', 'how many messages to show', '40')
@@ -112,8 +129,8 @@ ticket.command('read <ticket>')
 
 // Configuring
 
-const config = program.command('config').description('the deployment and the Policy')
-config.command('show', { isDefault: true })
+const config = group('config', 'the deployment and the Policy')
+config.command('show')
   .description('the deployment, the rules and the settings')
   .action(wrap(cli => configShow(cli)))
 config.command('set')
@@ -169,13 +186,15 @@ function report(error: unknown, json: boolean): number {
   return EXIT.failed
 }
 
+// The status is set rather than exited: `process.exit` does not wait for a pipe to flush, so a `--help` piped into
+// another command would arrive truncated.
 try {
   await program.parseAsync(process.argv)
 } catch (error) {
   if (error instanceof CommanderError) {
     // Help and version are answers, not failures; commander has already printed them.
-    if (['commander.helpDisplayed', 'commander.help', 'commander.version'].includes(error.code)) process.exit(EXIT.ok)
-    process.exit(EXIT.usage)
+    process.exitCode = ['commander.helpDisplayed', 'commander.help', 'commander.version'].includes(error.code) ? EXIT.ok : EXIT.usage
+  } else {
+    process.exitCode = report(error, program.opts().json === true)
   }
-  process.exit(report(error, program.opts().json === true))
 }

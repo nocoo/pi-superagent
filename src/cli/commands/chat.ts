@@ -63,8 +63,8 @@ export async function chat(cli: Cli, channelName: string, options: {
     process.stdout.write(`${JSON.stringify({ command: 'chat', result: { channel, messages: history } })}\n`)
   }
 
-  // Without a terminal this is a readable history command rather than an error, which is what a script wants.
-  if (process.stdin.isTTY !== true) return
+  // Without a terminal, or when the caller asked for JSON, this is a readable history command rather than a chat.
+  if (cli.json || process.stdin.isTTY !== true) return
 
   await new Promise<void>(resolve => {
     const reader = createInterface({ input: process.stdin, output: process.stdout, terminal: true, prompt: '' })
