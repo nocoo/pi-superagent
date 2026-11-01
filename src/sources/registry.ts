@@ -3,7 +3,7 @@ import type { ChannelRef, OutboundMessage, ScopeResult, SourceScope, Trigger } f
 import type { Commands } from '../infra/commands.ts'
 import { HealthBoard, type HealthEntry } from '../infra/health.ts'
 import { AdmissionTableSchema, type Settings } from '../policy.ts'
-import type { SourceInstance, SourceKind, TriggerContext, VariableSpec } from './kind.ts'
+import type { SourceInstance, SourceKind, VariableSpec } from './kind.ts'
 
 
 /**
@@ -96,16 +96,6 @@ export class SourceRegistry implements SourceScope {
     const kind = this.kinds.get(message.channel.source)
     if (!kind) return 'waiting'
     return kind.channel ? kind.channel.send({ commands }, message) : 'gone'
-  }
-  threadContext(trigger: Trigger, settings = this.settings()): TriggerContext | undefined {
-    const kind = this.kinds.get(trigger.source)
-    const context = kind?.threadContext
-    if (!kind || !context) return undefined
-    const { config } = this.resolve(kind, settings.sources[kind.kind])
-    return {
-      messageId: context.messageId(trigger),
-      read: (commands, part, cursor) => context.read(commands, trigger, part, cursor, config),
-    }
   }
   scope(input: { source: string; meta: Record<string, unknown> }, settings = this.settings()): ScopeResult {
     const kind = this.kinds.get(input.source)

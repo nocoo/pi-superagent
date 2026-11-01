@@ -2,7 +2,7 @@
 import { key, type Thread } from '../core/index.ts'
 import { sameName } from '../infra/text.ts'
 import { CliError, validItems, type Tally } from '../infra/commands.ts'
-import { ciCounts, ciFact, ciFailures, ciSummary, githubThreadContext, pullChecks } from './github-read.ts'
+import { ciCounts, ciFact, ciFailures, ciSummary, pullChecks } from './github-read.ts'
 import { branchCiTrigger, ciTrigger, commentTrigger, CommentSchema, githubAddress, issueTrigger, IssueSchema, pullTrigger, SOURCE }
   from './github-trigger.ts'
 import { sendGithub } from './github-channel.ts'
@@ -45,7 +45,6 @@ export const githubKind: SourceKind<GithubConfig> = {
   },
   health: ['github'],
   channel: { send: sendGithub },
-  threadContext: githubThreadContext,
   policy: {
     schema: z.object({ allowed: z.array(z.object({ id: z.string().regex(/^[A-Za-z0-9-]+$/) }).strict()).default([]),
       bots: z.array(z.object({ id: z.string().regex(/^[A-Za-z0-9-]+(\[bot\])?$/) }).strict()).optional() }).strict(),

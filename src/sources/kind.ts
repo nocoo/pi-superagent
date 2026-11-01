@@ -19,26 +19,6 @@ export interface SourceChannel<C> {
   send(host: Pick<SourceContext, 'commands'>, message: OutboundMessage): Promise<'sent' | 'gone'>
 }
 
-/** Normalized message returned by thread context readers; `bot` marks a non-human sender whose message can never authorize work on its own. */
-export interface ContextMessage {
-  id: string; from: string; at: string; text: string
-  bot?: true; deleted?: true; reply_to?: string; url?: string; path?: string; line?: number
-}
-export type ContextPartName = 'thread' | 'root' | 'parent'
-export interface ContextPart { messages: ContextMessage[]; next?: string | undefined; body: Record<string, unknown>; status?: string }
-
-/** Bounded thread context reader used by assessments to inspect messages around a trigger. */
-export interface ThreadContext<C> {
-  /** The ID of the Trigger's own message among the messages of its Thread. */
-  messageId(trigger: Trigger): string
-  /** Reads a page of thread messages (`thread`, first page when `cursor` is omitted), the topic root (`root`), or the replied-to message (`parent`). */
-  read(commands: Commands, trigger: Trigger, part: ContextPartName, cursor: string | undefined, config: C): Promise<ContextPart>
-}
-export interface TriggerContext {
-  readonly messageId: string
-  read(commands: Commands, part: ContextPartName, cursor?: string): Promise<ContextPart>
-}
-
 /** Policy extension for a source kind, defining allowed senders and the admission table rows that scope them. */
 export interface SourcePolicyPart {
   /** Validates the Source's part of the Policy: `allowed` (senders who may originate work) and, when the kind lists them, `bots`. */
@@ -59,8 +39,6 @@ export interface SourceKind<C extends Record<string, unknown> = Record<string, u
   scope?(input: { meta: Record<string, unknown> }, config: C): ScopeResult
   /** Outbound reply adapter; kinds without `channel` produce no replies or channel checks. */
   channel?: SourceChannel<C>
-  /** Bounded context reader for assessments; assessments of a kind without `threadContext` read none. */
-  threadContext?: ThreadContext<C>
   /** Policy section for kinds whose senders have their own identity. */
   policy?: SourcePolicyPart
   /** Variables the kind registers with the execution environment and how their values are computed. */
