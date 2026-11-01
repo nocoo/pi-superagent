@@ -139,9 +139,12 @@ bad change. Everything up to that point is automated; that point is not.
 - **A channel is one Thread, so a live ticket receives every later message in it.** A worker must hand back what is out
   of scope (`handback` in [003](003-execution.md)) or the channel collapses into one ticket. This was measured to work,
   and it is the part of the design with the least margin for error.
-- **A message was once both resumed and re-ticketed.** In one run a follow-up that arrived while a ticket was idle
-  resumed that ticket *and* started a new one, so the same fix was applied twice in two directories. It is recorded in
-  [Retrospective](../Retrospective.md) and is not yet explained; until it is, watch `pi-superagent ticket list` after
-  sending a second request on a channel that already has a ticket.
+- **A worker may hand a message back and then work on it anyway.** A second request in a channel reaches the live
+  ticket, whose worker is expected to hand it back so it gets its own ticket. In one run the worker handed it back *and*
+  fixed it, so two directories gained the same change. The domain did the right thing; the worker did not. The tool and
+  [004](004-prompts.md) now say to hand back *before* starting, but nothing enforces it — watch `pi-superagent ticket
+  list` after a second request lands in a channel that already has a ticket.
+- **The target has no git repository**, so a worker cannot show its change as a commit or open a pull request, and says
+  so in its report. Add `git init` and a first commit to the `prepare` command if a diff matters to you.
 - **The target is a fixture, not a product.** Its defects are fixed once and then it is consistent. Re-running the
   script after a run reports nothing new, so a fresh copy is needed for a new comparison.

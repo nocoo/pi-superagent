@@ -55,7 +55,11 @@ export class Intake extends EnginePart {
     this.repo.triggers.saveDisposition(trigger.id, disposition)
     // A person's message that no ticket decides, such as one that reached only tickets a person stopped or that follow the
     // Thread for context, and every bot's, goes to Eval.
-    if (!this.owners(trigger).length) this.queueForEval(trigger)
+    const owners = this.owners(trigger)
+    if (process.env.PI_SUPERAGENT_TRACE) {
+      process.stderr.write(`[trace] intake ${trigger.id.slice(0, 8)} human=${trigger.human} fanout=${fanout.map(id => id.slice(0, 8)).join(',')} context=${context.map(id => id.slice(0, 8)).join(',')} owners=${owners.map(id => id.slice(0, 8)).join(',')}\n`)
+    }
+    if (!owners.length) this.queueForEval(trigger)
     for (const ticketId of fanout) this.tickets.wake(ticketId)
     this.emit('trigger.received', { triggerId: trigger.id, threads: trigger.threads.map(threadKey) })
     return 'stored'

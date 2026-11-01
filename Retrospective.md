@@ -71,37 +71,50 @@ duplicate.
 
 ### The follow-up was both resumed and re-ticketed
 
-Timeline from the run's own database:
+One person's message produced two tickets and the same fix was applied in two directories. This was first recorded here
+as **unexplained**, with two failed reproductions behind it. That conclusion was wrong, and the way it was corrected is
+the lesson.
+
+**What actually happened**, from the trigger's own disposition record:
+
+```json
+{ "fanout": ["39c657e4…"],
+  "handbacks": [{ "ticketId": "39c657e4…", "reason": "beyond this ticket", "at": "05:54:21.092Z" }] }
+```
 
 | Time | Event |
 | --- | --- |
 | 05:52:27 | ticket A created; assignment 1 starts |
-| 05:53:04 | assignment 1 reports `ready`; the ticket ends |
-| 05:54:14 | a second message arrives in the same channel |
-| 05:54:14 | ticket A receives a `resumed` input and assignment 2 starts |
-| 05:54:34 | an Eval judges the same trigger, decides `accept`, and creates ticket B |
-| 05:54:53 | ticket B reports `ready`; ticket A ends again |
+| 05:53:04 | assignment 1 reports `ready`; ticket A ends |
+| 05:54:14 | a second, unrelated request arrives in the same channel |
+| 05:54:14 | the trigger fans out to ticket A, which resumes |
+| 05:54:21 | ticket A's worker **hands the message back** with the `handback` tool |
+| 05:54:34 | with no owner left, the trigger is assessed and ticket B is created |
+| 05:54:53 | ticket A reports `ready` — having fixed the same thing ticket B was created for |
 
-One person's message produced two Tickets and the same fix was applied in two directories. The user sees two results for
-one request.
+Every step is what the design says should happen. A message outside a ticket's mandate is handed back, and the domain
+gives it its own mandate. The defect is one level down, in the worker: it handed the message back **and then did the
+work anyway**, which is why two directories gained the same fix.
 
-What is known:
+So the fix is in the tools and the prompt, not in the domain: `handback` now answers *stop working on this message,
+change nothing for it*, and `prompts/work.md` says to hand back **before** starting rather than after.
 
-- Only one Trigger exists for that message, so this is not a duplicate ingest.
-- The domain's own suite (113 tests, carried over unchanged) passes, including follow-ups.
-- Reproducing it in isolation with the real Engine on SQLite — a live subscribed ticket, and later an ended one that
-  resumes — produced **no** second Eval in either case.
+**Why the reproductions failed.** Both used fake Executor and Assessor ports, so nothing ever called `handback`. The
+behaviour under test did not exist in the harness. Reproducing a production symptom means reproducing the parts of
+production that cause it, not the parts that are convenient to stub.
 
-So the cause is in the interaction with something the production path has and the repro does not: the two-second
-`Passes` loop, the IM Source's watcher firing during a pass, or the Executor's `wake` racing the owners check. It is
-recorded rather than guessed: a fix based on a hypothesis that the domain already contradicts would be worse than a
-known issue.
+**Why guessing was worse than looking.** Two plausible causes were nominated — a race with the two-second pass loop and
+a duplicate ingest — and both were disproved. Neither could have been fixed by reasoning about the code; the fact that
+settled it was a single line in a stored record, visible only because `intake` was made to print its decision:
 
-Until it is explained, `docs/009` tells an operator to watch `ticket list` after sending a second request on a channel
-that already has a ticket.
+```
+[trace] intake 9bc88d7e human=true fanout=39c657e4 owners=39c657e4
+```
 
-**Lesson:** an in-memory or SQLite repro that passes does not clear the production path, because the production path has
-concurrency the repro does not. Reproduce with the timer, not without it.
+`owners` was the ticket at intake, and the hand-back came seconds later. One instrumented run beat three hypotheses.
+
+**Lesson:** when a symptom is intermittent, instrument the failing path before reproducing it. A reproduction is a
+theory about what matters; a trace is a fact.
 
 ### What the run did get right
 

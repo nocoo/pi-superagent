@@ -232,7 +232,8 @@ binary before the state directory is written by a newer one.
 | accepted but did nothing | `pi-superagent ticket show <id>` | `prepare` failed, or the worker reported `dropped` with its evidence |
 
 `--verbose` on `run` prints every domain event as one line, which is the fastest way to see whether a Trigger was
-received, filtered, assessed or fanned out.
+received, filtered, assessed or fanned out. `PI_SUPERAGENT_TRACE=1` adds the intake decision — which tickets a Trigger
+reached and which of them owns it — which is what distinguishes "it never arrived" from "a worker handed it back".
 
 ## What this build does not do
 

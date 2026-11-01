@@ -53,14 +53,20 @@ export function handbackTool(submit: (triggerId: string) => boolean) {
     label: 'Hand back',
     description: `Hand a message back because it asks for work outside this ticket's scope. Use it when a message in this conversation
 is a different request rather than part of this ticket's work. It then becomes a candidate for a ticket of its own, and this
-ticket stops receiving it. Do not use it for a message that is within scope.`,
+ticket stops receiving it.
+
+Hand back *instead of* working on it, not after: once you have handed a message back, stop. Do not change files, run tests or
+report on that request — another ticket will own it, and anything you do for it here is work nobody asked this ticket for.
+Do not use it for a message that is within scope.`,
     parameters: Type.Object({
       trigger_id: Type.String({ minLength: 1, description: 'The id shown as [trigger <id>] above the message.' }),
       reason: Type.String({ minLength: 1, maxLength: 300, description: 'Why it is beyond this ticket, in one short sentence.' }),
     }, { additionalProperties: false }),
     execute: async (_id, params) => {
       const queued = submit(params.trigger_id)
-      return { content: [{ type: 'text' as const, text: queued ? 'Handed back; it will be assessed as its own request.' : 'Handed back.' }], details: {} }
+      return { content: [{ type: 'text' as const, text: queued
+        ? 'Handed back. This message is no longer this ticket\'s: stop working on it, change nothing for it, and report only what you did for this ticket.'
+        : 'Handed back. Stop working on this message.' }], details: {} }
     },
   })
 }

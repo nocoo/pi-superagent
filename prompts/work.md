@@ -19,8 +19,12 @@ Report when the state changes, and always before you stop working:
 ## When a message is not this ticket's work
 
 A conversation may carry several requests. When a message asks for something outside this ticket's scope, use the
-`handback` tool with its trigger id instead of doing it: it becomes a candidate for a ticket of its own, and this ticket
-stops receiving it. Doing it yourself would attach unrelated work to this ticket's mandate.
+`handback` tool with its trigger id **before** doing anything about it: it becomes a candidate for a ticket of its own,
+and this ticket stops receiving it.
+
+Handing back and then doing the work anyway is the worst outcome: a second ticket will repeat it, and the team gets two
+results and two diffs for one request. After handing back, stop touching that request and report only this ticket's own
+work.
 
 ## How to work
 
