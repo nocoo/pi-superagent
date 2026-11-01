@@ -86,6 +86,22 @@ own `gh` as `--github-cli`.
 [docs/architecture.md](docs/architecture.md) has the layer map and the port boundary.
 `pnpm check` runs the typecheck, the tests and the build.
 
+## Bootstrap evidence
+
+This agent was first run against its own repository, which is the cheapest end-to-end test there is.
+
+| What | Result |
+| --- | --- |
+| Polling, ingest, gate | Two unaddressed Issues arrived as `inferred` candidates |
+| Assessment on a settled request | `ignore` with `would_accept: true`, rule `copy` matched, direction settled |
+| Assessment on design deliberation | plain `ignore`; it read "What do you think?" as an unsettled request |
+| `observe` mode | 0 tickets created |
+| Explicit path in `auto` mode | ticket, worktree, Pi worker, one-line fix, `pnpm check` green, PR opened and closed |
+| A worker with nothing to do | reported `dropped` with the evidence instead of inventing a change |
+
+It found two real defects, both fixed and described in [Retrospective.md](Retrospective.md): the assessor's tool was
+disabled by its own allowlist, and the agent read its own comments because the CLI never resolved its account.
+
 ## Status
 
 An MVP, not a port. One closed loop: a GitHub trigger becomes a ticket, a Pi session works in a
