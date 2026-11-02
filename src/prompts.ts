@@ -23,7 +23,7 @@ export function packageRoot(): string {
 
 const cache = new Map<string, string>()
 /** Reads a prompt file by name, without its extension; the content is cached for the process. */
-export function prompt(name: 'assess' | 'work'): string {
+export function prompt(name: 'orchestrator' | 'assess' | 'work'): string {
   const cached = cache.get(name)
   if (cached !== undefined) return cached
   const text = readFileSync(join(packageRoot(), 'prompts', `${name}.md`), 'utf8').trim()
