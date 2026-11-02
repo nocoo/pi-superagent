@@ -234,7 +234,7 @@ export function DecisionsPage() {
       const id = typeof decision.id === 'string' ? decision.id : undefined
       return <SectionCard key={id ?? index} title={formatValue(decision.kind)} actions={<StatusBadge value={decision.kind} />}>
         <KeyValue entries={entries(decision)} />
-        {id && <ConfirmAction label="Dismiss" title="Dismiss unavailable decision" description="只移除当前未判定决策的问题提示。" busy={mutation.busy} onConfirm={async () => {
+        {decision.kind === 'unavailable' && decision.dismissed !== true && id && <ConfirmAction label="Dismiss" title="Dismiss unavailable decision" description="只移除当前未判定决策的问题提示。" busy={mutation.busy} onConfirm={async () => {
           try { await mutation.execute(['decision','dismiss',id]); toast.success('已处理'); state.reload() } catch { /* mutation.error is rendered near the page */ }
         }} />}
       </SectionCard>
@@ -367,7 +367,7 @@ export function PromptsPage() {
       <TabsList><TabsTrigger value="edit">编辑</TabsTrigger><TabsTrigger value="preview">预览</TabsTrigger><TabsTrigger value="compare">比较</TabsTrigger><TabsTrigger value="history">历史与恢复</TabsTrigger></TabsList>
       <TabsContent value="edit"><form className="web-form" onSubmit={save}>
         {(['orchestrator','assess','work','shared'] as const).map(name => <label key={name} className="web-field"><span>{name}</span>
-          <InputArea aria-label={name} value={config[name]} onChange={event => editConfig({ ...config, [name]: event.target.value })} />
+          <InputArea aria-label={name} disabled={mutation.busy} value={config[name]} onChange={event => editConfig({ ...config, [name]: event.target.value })} />
         </label>)}
         <Button type="submit" loading={mutation.busy}>保存新版本</Button>
       </form></TabsContent>
@@ -460,7 +460,7 @@ export function ConfigPage() {
     <SectionCard title="完整配置"><JsonPreview value={state.data.settings} /></SectionCard>
     <SectionRule title="导入完整 settings" />
     <form className="web-form" onSubmit={importConfig}>
-      <InputArea aria-label="完整 settings JSON" value={json} onChange={event => { setJson(event.target.value); setDirty(true); if (baseRevision === undefined) setBaseRevision(typeof state.data?.revision === 'number' ? state.data.revision : 0) }} />
+      <InputArea aria-label="完整 settings JSON" disabled={mutation.busy} value={json} onChange={event => { setJson(event.target.value); setDirty(true); if (baseRevision === undefined) setBaseRevision(typeof state.data?.revision === 'number' ? state.data.revision : 0) }} />
       <ConfirmAction label="导入配置" title="导入完整 settings" description="导入不成功不会修改配置。" busy={mutation.busy} onConfirm={() => { void importConfig() }} />
     </form>
     <SectionRule title="配置历史" />

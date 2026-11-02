@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { chromium, expect, type Browser, type BrowserContext, type Locator, type Page, type Route } from '@playwright/test'
 import * as assert from 'node:assert/strict'
 
 const defaultUrl = 'https://superagent.dev.hexly.ai'
@@ -95,6 +95,31 @@ async function apiArgs(page: Page, args: string[], input?: string): Promise<{ st
     })
     return { status: response.status, envelope: await response.json() as Record<string, unknown> }
   }, { args, input })
+}
+
+async function verifyPendingEditor(page: Page, editor: Locator, group: string, command: string, submit: () => Promise<void>): Promise<void> {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const matches = (body: { args?: string[] }) => body.args?.[0] === group && body.args[1] === command
+  const handler = async (route: Route) => {
+    if (matches(route.request().postDataJSON() as { args?: string[] })) await gate
+    await route.continue()
+  }
+  await page.route('**/api/cli', handler)
+  const request = page.waitForRequest(request => request.url().endsWith('/api/cli') && request.method() === 'POST'
+    && matches(request.postDataJSON() as { args?: string[] }), { timeout: 5000 })
+  const response = page.waitForResponse(response => response.url().endsWith('/api/cli') && response.request().method() === 'POST'
+    && matches(response.request().postDataJSON() as { args?: string[] }), { timeout: 15000 })
+  void request.catch(() => {})
+  void response.catch(() => {})
+  try {
+    await submit()
+    await request
+    await expect(editor).toBeDisabled()
+    release()
+    assert.equal((await response).status(), 200, 'Pending editor save must succeed')
+    await expect(editor).toBeEnabled()
+  } finally { release(); await page.unroute('**/api/cli', handler) }
 }
 
 async function main(): Promise<void> {
@@ -209,6 +234,11 @@ async function main(): Promise<void> {
     const loadedJson = await configEditor.first().inputValue()
     assert.ok(loadedJson.trim() !== '{\n}' && loadedJson.includes('{'), 'Config editor must load real settings JSON')
 
+    await verifyPendingEditor(page, configEditor.first(), 'config', 'import', async () => {
+      await page.getByRole('button', { name: '导入配置', exact: true }).click()
+      await page.getByRole('button', { name: '确认', exact: true }).click()
+    })
+    report.observations.pendingConfigEditorLocked = true
     const beforeConfig = await apiArgs(page, ['config', 'show'])
     assert.equal(beforeConfig.status, 200, 'Config show must succeed')
     const beforeResult = beforeConfig.envelope.result as { revision?: number; settings?: unknown }
@@ -265,6 +295,10 @@ async function main(): Promise<void> {
     assert.ok(promptBefore.config, 'Prompt show must return the real editable configuration')
 
     const first = textareas.first()
+    await verifyPendingEditor(page, first, 'prompt', 'set', async () => {
+      await page.getByRole('button', { name: '保存新版本', exact: true }).click()
+    })
+    promptObservation.pendingEditorLocked = true
     const value = await first.inputValue()
     const marker = '\n<!-- web probe dirty draft; no save -->'
     await first.fill(value.includes(marker) ? value : `${value}${marker}`)
