@@ -8,7 +8,7 @@ import type { HealthEntry } from '../infra/health.ts'
 import type { Deployment } from '../config.ts'
 import type { Settings } from '../policy.ts'
 import { executionRoot, environmentOf, executionVariables, prepare } from './environment.ts'
-import { handbackTool, reportTool } from './report-tool.ts'
+import { askTool, handbackTool, reportTool } from './report-tool.ts'
 import { workerTools } from './worker-tools.ts'
 import { resolveTrigger } from './context.ts'
 import type { PiSessions, SessionProfile } from './sessions.ts'
@@ -133,7 +133,28 @@ export class PiExecutor implements Executor {
         `Authorization: ${ticket.mandate.strength}. Do not expand this scope; hand back unrelated messages before working on them.`,
         this.host.deployment.repository ? `Optional GitHub integration: ${this.host.deployment.repository}. Use it only when the task calls for it.` : 'No GitHub repository is configured. Complete the task with the available tools and source conversation.',
       ].join('\n\n'),
+      extensions: [pi => {
+        let before: string | undefined
+        let remindedFor: string | undefined
+        pi.on('before_agent_start', () => {
+          before = this.current(ticket.id, assignmentId)?.assignments.at(-1)?.report?.at
+          remindedFor = undefined
+        })
+        pi.on('agent_before_settle', event => {
+          const current = this.current(ticket.id, assignmentId)
+          const assignment = current?.assignments.at(-1)
+          if (!assignment || event.outcome !== 'completed' || event.continue || !event.context.canContinue) return
+          const report = assignment.report
+          const input = assignment.deliveredAt ?? assignmentId
+          if (report && report.state !== 'progress' && report.at !== before && (!assignment.deliveredAt || report.at >= assignment.deliveredAt)) return
+          if (remindedFor === input) return
+          remindedFor = input
+          return { continue: true, entries: [{ type: 'custom_message', customType: 'report-required', display: false,
+            content: 'This turn has no structured final report. Your prose is not sent to the requester. Use ask to send a question to a person, or report a ready result, an external-event wait, or a failure. Do not invent completion.' }] }
+        })
+      }],
       customTools: [
+        askTool((report, _pr, signal) => this.report(ticket.id, assignmentId, report, undefined, signal), () => ticket.origin.triggerId),
         reportTool((report, prNumber, signal) => this.report(ticket.id, assignmentId, report, prNumber, signal), () => ticket.origin.triggerId),
         handbackTool((triggerId, reason) => this.host.engine.handback(ticket.id, resolveTrigger(this.host.store, triggerId).id, reason)),
         ...workerTools({ engine: this.host.engine, store: this.host.store, ticket }),

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { textPage, threadPage, readGithubThread, resolveTrigger } from '../src/agents/context.ts'
-import { reportTool, handbackTool } from '../src/agents/report-tool.ts'
+import { askTool, reportTool, handbackTool } from '../src/agents/report-tool.ts'
 import { COORDINATOR_TOOL_NAMES, coordinatorTools } from '../src/agents/coordinator-tools.ts'
 import { createAgentSession, SessionManager, defineTool } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -122,6 +122,13 @@ it('resolves unique short IDs but never guesses a corrupted long ID', () => {
   expect(() => resolveTrigger(store as never, 'abcdef129999999999')).toThrow('Recent trigger IDs: abcdef12, fedcba98')
   records.push({ id: 'abcdef121111111111111111111111' })
   expect(() => resolveTrigger(store as never, 'abcdef12')).toThrow('2 triggers match')
+})
+
+it('records a structured question through the explicit ask tool', async () => {
+  const submit = vi.fn(async () => {})
+  const result = await askTool(submit, () => 'origin').execute('ask', { question: 'Which destination?' }, undefined, undefined, {} as never)
+  expect(submit).toHaveBeenCalledWith({ state: 'blocked', summary: 'Which destination?', question: 'Which destination?', askedBy: 'origin' }, undefined, undefined)
+  expect(result.terminate).toBe(true)
 })
 
 it('records the actual handback reason', async () => {

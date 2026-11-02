@@ -100,6 +100,22 @@ describe('executor lifecycle through the real Engine and queue', () => {
     await f.pump()
     expect(f.live.get(workerSessionId(id))!.session.prompt).toHaveBeenCalledWith(expect.stringContaining('Summarize the March operations report'))
   })
+  it('uses a bounded Pi extension reminder when a worker ends without a report', async () => {
+    const f = fixture()
+    const id = f.accept('Ask for a destination')
+    await f.pump()
+    const handlers = new Map<string, (event: unknown) => unknown>()
+    const extension = f.profiles[0]!.profile.extensions![0]
+    if (typeof extension !== 'function') throw new Error('Expected an inline extension')
+    await extension({ on: (name: string, handler: (event: unknown) => unknown) => { handlers.set(name, handler); return () => {} } } as never)
+    handlers.get('before_agent_start')!({})
+    const event = { outcome: 'completed', continue: false, context: { canContinue: true } }
+    expect(handlers.get('agent_before_settle')!(event)).toMatchObject({ continue: true, entries: [expect.objectContaining({ customType: 'report-required' })] })
+    expect(handlers.get('agent_before_settle')!(event)).toBeUndefined()
+    f.engine.report(id, { state: 'blocked', summary: 'Which destination?', question: 'Which destination?' })
+    expect(handlers.get('agent_before_settle')!(event)).toBeUndefined()
+  })
+
   it('does not deliver a launch input twice through a concurrent delivery effect', async () => {
     const f = fixture()
     const id = f.accept('Write a summary')

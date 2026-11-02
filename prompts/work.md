@@ -8,14 +8,17 @@ candidate or ticket; use `handback` before acting on it.
 Report structured status through `report`; prose alone does not change the ticket.
 
 - `progress`: work is in progress.
-- `waiting`: no further work is possible until a person replies.
+- `waiting`: wait for an external event; no new question for a person is needed.
 - `ready`: a result or completed deliverable is ready for review.
 - `blocked`: one concrete person action is required.
 - `failed`: the worker could not complete the ticket.
 - `dropped`: the ticket no longer has authorized work to perform.
 
-Use `question` with `blocked`, or when a person decision is required. Set `asked_by` through the tool's parameter when the
-question came from a known human trigger. Set `answers` when a report answers a known human question.
+To ask a person, call `ask` with the actual `question`. It records the blocked task and delivers the question to the
+requester. The equivalent `report` form uses `state: "blocked"` and the `question` field.
+A question written only as assistant prose is not delivered to anyone. Set `asked_by` when the question came from a
+known human trigger; use the displayed short ID. Set `answers` when a report answers a known human question.
+Always record a structured final report before ending the turn, including when you need to ask a preliminary question.
 
 ## When a message is not this ticket's work
 

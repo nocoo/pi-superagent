@@ -7,12 +7,27 @@ import { defineTool } from '@earendil-works/pi-coding-agent'
 import type { ReportState, WorkerReport } from '../core/index.ts'
 
 const STATES = ['progress', 'waiting', 'ready', 'blocked', 'failed', 'dropped'] as const
+export type SubmitReport = (report: WorkerReport, prNumber?: number, signal?: AbortSignal) => void | Promise<void>
+
+export function askTool(submit: SubmitReport, askedBy: () => string | undefined) {
+  return defineTool({
+    name: 'ask', label: 'Ask the requester',
+    description: 'Send one question to the requester and wait for an answer. Use this whenever human input is needed; assistant prose alone is not delivered.',
+    parameters: Type.Object({ question: Type.String({ minLength: 1, maxLength: 1000 }),
+      trigger_id: Type.Optional(Type.String({ description: 'The human request that raised the question; defaults to this task’s origin.' })) }, { additionalProperties: false }),
+    execute: async (_id, params, signal) => {
+      await submit({ state: 'blocked', summary: params.question, question: params.question,
+        askedBy: params.trigger_id || askedBy() }, undefined, signal)
+      return { content: [{ type: 'text' as const, text: 'Question recorded for delivery. Wait for the requester’s answer.' }], details: {}, terminate: true }
+    },
+  })
+}
 
 /**
  * Builds the report tool for one ticket. `submit` receives a validated report; `askedBy` names the person's trigger
  * whose request raised the question, so the question reaches the conversation it came from.
  */
-export function reportTool(submit: (report: WorkerReport, prNumber?: number, signal?: AbortSignal) => void | Promise<void>, askedBy: () => string | undefined) {
+export function reportTool(submit: SubmitReport, askedBy: () => string | undefined) {
   return defineTool({
     name: 'report',
     label: 'Report',
