@@ -6,7 +6,7 @@ import * as assert from 'node:assert/strict'
 
 const defaultUrl = 'https://superagent.dev.hexly.ai'
 const baseUrl = (process.env.WEB_PROBE_URL || defaultUrl).replace(/\/$/, '')
-const screenshotDir = resolve('.local/browser')
+const screenshotDir = resolve(process.env.WEB_PROBE_DIR || '.local/browser')
 const reportPath = resolve(screenshotDir, 'probe-report.json')
 
 interface ProbeReport {
@@ -97,6 +97,33 @@ async function apiArgs(page: Page, args: string[], input?: string): Promise<{ st
   }, { args, input })
 }
 
+async function verifyFrame(page: Page): Promise<void> {
+  const sidebar = page.getByTestId('desktop-sidebar')
+  const mark = sidebar.locator('.sa-brand-slot svg')
+  await expect(sidebar).toBeVisible()
+  const before = await mark.boundingBox()
+  assert.ok(before)
+  await page.getByRole('button', { name: '收起导航', exact: true }).click()
+  await expect.poll(() => sidebar.evaluate(element => Math.round(element.getBoundingClientRect().width))).toBe(68)
+  const collapsed = await sidebar.locator('.sa-brand-mark svg').boundingBox()
+  assert.ok(collapsed)
+  assert.ok(Math.abs((before.x + before.width / 2) - (collapsed.x + collapsed.width / 2)) <= 1, 'Brand axis must stay stable')
+  await sidebar.getByRole('button', { name: '任务', exact: true }).hover()
+  await expect(page.getByRole('tooltip')).toContainText('任务')
+  await screenshot(page, '00-collapsed-navigation')
+  await page.getByRole('button', { name: '展开导航', exact: true }).click()
+  await expect.poll(() => sidebar.evaluate(element => Math.round(element.getBoundingClientRect().width))).toBe(260)
+  await page.keyboard.press('Meta+k')
+  await expect(page.getByRole('textbox', { name: '搜索', exact: true })).toBeFocused()
+  const hash = await page.evaluate(() => location.hash)
+  await page.getByRole('link', { name: '跳到内容', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('#main-content')).toBeFocused()
+  assert.equal(await page.evaluate(() => location.hash), hash, 'Skip link must not change the hash route')
+  await go(page, '/')
+  report.observations.frame = { collapsedWidth: 68, expandedWidth: 260, stableBrandAxis: true, searchShortcut: true, skipLink: true }
+}
+
 async function verifyPendingEditor(page: Page, editor: Locator, group: string, command: string, submit: () => Promise<void>): Promise<void> {
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
@@ -168,16 +195,19 @@ async function main(): Promise<void> {
       bodyTextPresent: (await page.locator('body').innerText()).length > 0,
     }
 
+    await verifyFrame(page)
     await go(page, '/tasks')
     await page.waitForTimeout(1200)
     await screenshot(page, '02-tasks')
-    assert.equal(await clickRole(page, 'button', 'ended'), true, 'Ended task filter must be rendered')
+    await page.getByRole('combobox', { name: '任务阶段', exact: true }).click()
+    await page.getByRole('option', { name: '已结束', exact: true }).click()
     await page.waitForTimeout(900)
     await screenshot(page, '02b-tasks-ended')
     report.observations.endedFilter = { activated: true }
-    assert.equal(await clickRole(page, 'button', '全部'), true, 'All task filter must restore active tasks')
+    await page.getByRole('combobox', { name: '任务阶段', exact: true }).click()
+    await page.getByRole('option', { name: '全部', exact: true }).click()
     await page.waitForTimeout(800)
-    const detailButton = page.getByRole('button', { name: '查看详情', exact: true })
+    const detailButton = page.getByRole('button', { name: '查看', exact: true })
     assert.ok(await detailButton.count() > 0, 'At least one real task detail must exist')
     await detailButton.first().click()
     await page.waitForTimeout(1200)
@@ -193,6 +223,33 @@ async function main(): Promise<void> {
       await page.waitForTimeout(900)
       await screenshot(page, name)
     }
+
+    await go(page, '/chat')
+    const channelInput = page.getByRole('textbox', { name: 'channel', exact: true })
+    await expect(channelInput).toBeEnabled()
+    const channel = `ui-basalt-${Date.now().toString(36)}`
+    await channelInput.fill(channel)
+    await page.getByRole('textbox', { name: '发送者', exact: true }).fill('ui-check')
+    const composer = page.getByRole('textbox', { name: '消息', exact: true })
+    await composer.fill('Draft for the first channel')
+    await channelInput.fill(`${channel}-other`)
+    await expect(composer).toHaveValue('')
+    await composer.fill('Draft for the other channel')
+    await channelInput.fill(channel)
+    await expect(composer).toHaveValue('Draft for the first channel')
+    const chatMessage = `Basalt interface check ${Date.now()}`
+    await composer.fill(chatMessage)
+    const sent = page.waitForResponse(response => {
+      if (!response.url().endsWith('/api/cli') || response.request().method() !== 'POST') return false
+      const body = response.request().postDataJSON() as { args?: string[] }
+      return body.args?.[0] === 'chat' && body.args.includes('--send')
+    })
+    await page.getByRole('button', { name: '发送', exact: true }).click()
+    assert.equal((await sent).status(), 200, 'Chat send must reach the real CLI')
+    await expect(page.locator('.sa-chat-feed')).toContainText(chatMessage)
+    await expect(composer).toHaveValue('')
+    report.observations.chat = { sent: true, channel, independentDrafts: true }
+    await screenshot(page, '08-chat-sent')
 
     await go(page, '/search')
     await page.waitForTimeout(700)
@@ -326,7 +383,7 @@ async function main(): Promise<void> {
     assert.equal(previewEnvelope.ok, true, 'Prompt preview bridge response must be successful')
     assert.ok(previewEnvelope.result?.prompts?.orchestrator, 'Prompt preview must contain orchestrator text')
     await page.waitForTimeout(900)
-    const previewPanels = await page.locator('.web-json').allInnerTexts()
+    const previewPanels = await page.locator('.sa-json').allInnerTexts()
     assert.ok(previewPanels.some(text => text.includes(previewEnvelope.result!.prompts!.orchestrator!)),
       'Prompt preview response text must render in the page')
     await screenshot(page, '12-prompts-preview')
@@ -386,6 +443,13 @@ async function main(): Promise<void> {
     await page.waitForTimeout(500)
     report.observations.narrow = { menuOpened: true }
     await screenshot(page, '15-narrow-navigation')
+    await page.getByTestId('mobile-sidebar').getByRole('button', { name: '任务', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(menuButton).toBeFocused()
+    assert.equal(await page.getByTestId('desktop-sidebar').count(), 0, 'Mobile must not duplicate desktop navigation')
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+    assert.equal(overflow, false, 'Narrow layouts must not overflow the viewport')
+    report.observations.mobileFocusRestored = true
 
     const uniqueBridgeArgs = report.bridgeRequests.map(item => JSON.stringify(item.args)).filter((value, index, all) => all.indexOf(value) === index)
     report.observations.bridgeRequestCount = report.bridgeRequests.length

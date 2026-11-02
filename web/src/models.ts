@@ -109,7 +109,7 @@ export function useCli<T>(args: string[], intervalMs = 0, enabled = true): CliSt
       clearTimer()
       void load()
     }
-    setState(previous => ({ ...previous, loading: previous.data === undefined }))
+    setState({ loading: true })
     void load()
 
     return () => {

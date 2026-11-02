@@ -7,17 +7,13 @@ import { AccentProvider } from '@nocoo/basalt/providers/accent'
 import { Github } from './github-icon'
 import { AppMain, AppShell, AppSkipLink } from '@nocoo/basalt/components/app-shell'
 import { LinkButton } from '@nocoo/basalt/components/button'
-import { PageHeader } from '@nocoo/basalt/components/page-header'
-import { Empty } from '@nocoo/basalt/components/empty'
-import { LayerCard } from '@nocoo/basalt/components/layer-card'
 import { Sheet, SheetContent, SheetTitle } from '@nocoo/basalt/components/sheet'
 import { ContentIsland, Sidebar, SidebarFooter, SidebarHeader, SidebarIconItem, SidebarItem, SidebarNav,
   SidebarPartition, SidebarSearch, SidebarUser } from '@nocoo/basalt/components/sidebar'
 import { Bot, FileText, GitBranch, Inbox, LayoutDashboard, ListTodo, Menu, MessageSquare,
   MessagesSquare, Monitor, Network, PanelLeftClose, PanelLeftOpen, Search, Settings, X } from 'lucide-react'
 import pkg from '../../package.json'
-import { ChatPage, ConfigPage, CoordinatorPage, DecisionsPage, OverviewPage, PromptsPage, SearchPage,
-  SourcesPage, TasksPage, ThreadsPage } from './App'
+import { RouteView } from './App'
 import { useHashRoute } from './models'
 import { activeRoute, appHref, navigation, navigationGroups, routeInfo } from './navigation'
 
@@ -81,23 +77,6 @@ function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
         action={<Button size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />}
     </SidebarFooter>
   </Sidebar>
-}
-
-function RouteView({ route, navigate }: { route: string; navigate: (path: string) => void }) {
-  if (!routeInfo(route).known) return <>
-    <PageHeader title="页面不存在" description="这个地址没有对应的工作区页面。" />
-    <LayerCard><Empty icon={<Search aria-hidden="true" />} title="找不到此页面" action={<Button onClick={() => navigate('/')}>返回概览</Button>} /></LayerCard>
-  </>
-  if (route === '/') return <OverviewPage />
-  if (activeRoute(route, '/tasks')) return <TasksPage route={route} navigate={navigate} />
-  if (activeRoute(route, '/threads')) return <ThreadsPage route={route} navigate={navigate} />
-  if (route === '/decisions') return <DecisionsPage />
-  if (route === '/sources') return <SourcesPage />
-  if (route === '/search') return <SearchPage />
-  if (route === '/config') return <ConfigPage />
-  if (route === '/prompts') return <PromptsPage />
-  if (route === '/chat') return <ChatPage />
-  return <CoordinatorPage />
 }
 
 function Workspace() {
