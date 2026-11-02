@@ -51,7 +51,7 @@ it('records unavailable rather than success when a coordinator records no decisi
     triggers: [{ id: 'trigger-1' }], tickets: [], policyVersion: 'v' }
   let boundary: ((event: unknown) => unknown) | undefined
   const session = { prompt: async () => {
-    const event = { outcome: 'completed', context: { canContinue: true } }
+    const event = { outcome: 'completed', context: { canContinue: false } }
     expect(boundary?.(event)).toMatchObject({ continue: true, entries: [expect.objectContaining({ customType: 'decision-required' })] })
     expect(boundary?.(event)).toBeUndefined()
   }, isStreaming: false, isIdle: true }

@@ -81,7 +81,7 @@ export class PiCoordinator implements Assessor {
       extensions: [pi => {
         pi.on('agent_before_settle', event => {
           const active = this.active
-          if (event.outcome !== 'completed' || !event.context.canContinue || !active || active.reminded
+          if (event.outcome !== 'completed' || !active || active.reminded
             || this.host.engine.candidate(active.triggerId)?.evalId !== active.evalId) return
           active.reminded = true
           return { continue: true, entries: [{ type: 'custom_message', customType: 'decision-required', display: false,

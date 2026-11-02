@@ -2,6 +2,8 @@
 
 ## 2026-11-02 — restoring CLI-first supervision
 
+The final review caught an incorrect Pi boundary assumption: `agent_before_settle.context.canContinue` describes the context before an extension appends its entries. A final assistant message makes it false; the reminder's custom message is what makes continuation possible. Both handlers now let Pi validate the updated context, and tests use the real prose-only terminal state (`canContinue: false`). Poll-safe editors also need request-safe drafts: prompt and configuration editors are disabled while their save is pending so a late response cannot overwrite newer typing.
+
 A real startup race exposed that a CLI "read" opened the normal Store constructor, reran schema setup, and took a write transaction. Concurrent status polling could make the owner fail with `database is locked`. Read commands now use SQLite's actual read-only connection mode and never initialize the schema; a regression test opens one while the owner holds `BEGIN IMMEDIATE`. A native bounded busy timeout covers short writer transitions rather than hiding the problem behind CLI retries.
 
 The live model also repeatedly corrupted long event IDs while correcting a tool call. Agent tools now share the CLI's unique-prefix resolver and display eight-character IDs. An invalid long ID is still rejected; it is never fuzzily matched to a nearby request.

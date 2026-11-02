@@ -143,7 +143,7 @@ export class PiExecutor implements Executor {
         pi.on('agent_before_settle', event => {
           const current = this.current(ticket.id, assignmentId)
           const assignment = current?.assignments.at(-1)
-          if (!assignment || event.outcome !== 'completed' || event.continue || !event.context.canContinue) return
+          if (!assignment || event.outcome !== 'completed' || event.continue) return
           const report = assignment.report
           const input = assignment.deliveredAt ?? assignmentId
           if (report && report.state !== 'progress' && report.at !== before && (!assignment.deliveredAt || report.at >= assignment.deliveredAt)) return

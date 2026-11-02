@@ -109,7 +109,7 @@ describe('executor lifecycle through the real Engine and queue', () => {
     if (typeof extension !== 'function') throw new Error('Expected an inline extension')
     await extension({ on: (name: string, handler: (event: unknown) => unknown) => { handlers.set(name, handler); return () => {} } } as never)
     handlers.get('before_agent_start')!({})
-    const event = { outcome: 'completed', continue: false, context: { canContinue: true } }
+    const event = { outcome: 'completed', continue: false, context: { canContinue: false } }
     expect(handlers.get('agent_before_settle')!(event)).toMatchObject({ continue: true, entries: [expect.objectContaining({ customType: 'report-required' })] })
     expect(handlers.get('agent_before_settle')!(event)).toBeUndefined()
     f.engine.report(id, { state: 'blocked', summary: 'Which destination?', question: 'Which destination?' })
