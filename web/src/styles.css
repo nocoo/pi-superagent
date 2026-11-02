@@ -1,13 +1,81 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
   margin: 0;
 }
 
 body {
-  background: var(--basalt-background);
-  color: var(--basalt-foreground);
+  background: hsl(var(--basalt-background));
+  color: hsl(var(--basalt-foreground));
+  font-family: var(--basalt-font-sans);
+  font-size: var(--basalt-text-base);
+  line-height: var(--basalt-leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sa-island-wrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  padding-inline: var(--basalt-space-lg);
+  padding-bottom: var(--basalt-space-lg);
+}
+
+.sa-page-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--basalt-space-layout-lg);
+  min-width: 0;
+}
+
+.sa-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--basalt-space-sm);
+  width: 100%;
+  min-width: 0;
+}
+
+.sa-brand-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  width: calc(var(--basalt-size-rail) - 2 * var(--basalt-space-nav-inset));
+}
+
+.sa-brand-mark { display: flex; align-items: center; justify-content: center; }
+.sa-brand-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.sa-version { font-size: var(--basalt-text-sm); color: hsl(var(--basalt-muted-foreground)); white-space: nowrap; }
+.sa-sidebar-search { padding-inline: var(--basalt-space-nav-inset); }
+.sa-rail-control { display: flex; justify-content: center; }
+.sa-nav-group { display: flex; flex-direction: column; gap: var(--basalt-space-nav-gap); }
+
+.sa-mobile-sheet {
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  background: hsl(var(--basalt-background));
+}
+
+.sa-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 768px) {
+  .sa-island-wrap { padding-inline: var(--basalt-space-layout-sm); padding-bottom: var(--basalt-space-layout-sm); }
 }
 
 button,
