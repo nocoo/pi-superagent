@@ -36,15 +36,15 @@ export const environmentOf = (variables: Variable[]): Record<string, string> =>
  * prepared, so a failed command is never retried over its leftovers.
  * @throws with the command's output when it fails.
  */
-export async function prepare(directory: string, root: string, command: string, environment: Record<string, string>): Promise<void> {
+export async function prepare(directory: string, root: string, command: string, environment: Record<string, string>, signal?: AbortSignal): Promise<void> {
   await mkdir(root, { recursive: true })
   if (await stat(directory).then(() => true, () => false)) return
   if (!command.trim()) { await mkdir(directory, { recursive: true }); return }
   try {
-    await exec('sh', ['-c', command], { cwd: root, timeout: PREPARE_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+    await exec('sh', ['-c', command], { cwd: root, timeout: PREPARE_TIMEOUT_MS, signal, maxBuffer: 16 * 1024 * 1024,
       env: { ...process.env, ...environment } })
   } catch (error) {
-    const output = (error as { stderr?: string; stdout?: string }).stderr ?? (error as { stdout?: string }).stdout ?? String(error)
+    const output = (error as { stderr?: string; stdout?: string }).stderr?.trim() || (error as { stdout?: string }).stdout?.trim() || String(error)
     throw new Error(`The prepare command failed: ${output.slice(0, 2000)}`)
   }
   await mkdir(directory, { recursive: true })

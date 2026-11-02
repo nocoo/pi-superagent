@@ -1,5 +1,15 @@
 # Retrospective
 
+## 2026-11-02 — restoring CLI-first supervision
+
+The first integration passed its tests but review found gaps the tests did not model: polling overwrote unsaved prompt drafts, configuration drafts borrowed a newer revision and bypassed conflict detection, and the panel read a different search shape than the CLI returned. Tests of a successful bridge call do not prove an interactive editing workflow. Keep draft data and its base revision together, and verify polling, conflicting edits, search, and ended-task filters in the browser.
+
+The inherited policy hash omitted receiver configuration. Disabling a Source therefore left an old evaluation eligible to accept work. The human gate also relied on intake having checked the receiving scope. Policy versions now conservatively include Source configuration, and the gate checks scope again when events are replayed. A disabled receiver must not gain authority through a different entry point.
+
+Pi's tool allowlist and persistent tool closures also require explicit tests: registered tools are not necessarily active, and a session reused for a second candidate must not retain the first candidate's evaluation identity. Runtime tests now exercise these boundaries instead of only asserting prompt strings.
+
+Tooling lessons: inspect exact replacement text before batching edits; an approximate replacement is rejected atomically. Do not infer terminal key syntax from a displayed shortcut: Herdr rejected `ctrl+end`, while its ordinary history reader recovered the report without injecting keys. A registry metadata miss was resolved by using the permitted alternate mirror, without relaxing supply-chain checks.
+
 ## 2026-11-01 — the self-bootstrap experiment
 
 Running `pi-superagent` on its own repository found two defects that no unit test would have.

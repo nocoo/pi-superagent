@@ -4,10 +4,9 @@ This document names the concepts of `pi-superagent` and the rules each one keeps
 other documents use these terms and no others. Following [000 Philosophy](000-philosophy.md), the model holds only
 concepts the work needs, and a business need becomes an attribute of one of them.
 
-The model is carried over unchanged from
-[dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype); `src/core/` imports nothing but
-`node:crypto`. What this fork changed is the runtime underneath, not the model. Where behaviour differs, this document
-says so.
+The domain model is governance code carried forward from the prototype and kept independent of its harness. `src/core/`
+imports no runtime-specific package and keeps `Ticket`, `Mandate`, `Eval`, `Trigger`, `Thread` and `Subscription` as
+harness-independent concepts. The current runtime is Pi, with a persistent coordinator and persistent worker sessions.
 
 ## Flow
 
@@ -80,17 +79,17 @@ notification, and translates them into Triggers.
 
 | Part | In this repository |
 | --- | --- |
-| Source | GitHub: notifications, subscribed Issues and pull requests, CI changes, pull requests merged or closed, and, where switched on, every new Issue, pull request and comment in the repository and the default branch's CI |
+| Source | GitHub (optional), local IM, and generic Inbox external events; GitHub observes repository, Issue, pull request and CI streams, while Inbox and IM translate external events into `Trigger` objects |
 | Policy | Assessment rules, and each Source's allowed list, bot list and admission table |
-| Executor | A Pi session and a directory per Ticket ([003](003-execution.md)) |
-| Channel | GitHub comments and review thread replies |
+| Executor | A Pi session and a directory per Ticket ([003](003-execution.md)); the main session is a separate persistent `PiCoordinator` |
+| Channel | GitHub comments and review replies, local IM messages, and Inbox JSONL replies for an external adapter |
 
 ### What this repository does not have yet
 
 | Missing | Consequence |
 | --- | --- |
-| A second Source | Correlation is implemented in `src/core/` but no Source produces multi-Thread Triggers, so it is never exercised |
-| A routing session | An explicit request is assessed like a proactive one instead of being routed directly; see [002](002-authorization.md#the-one-difference-from-the-original) |
+| A second Source | A generic Inbox and local IM now exercise external intake, but a Source that produces multi-Thread correlated Triggers is not yet represented |
+| A durable background-job model | Pi SDK 1.4 is session-oriented here; background jobs and subagents are not implemented by this project |
 | A Source that lists admission rows for a surface | The admission table works and is evaluated, but it is configured as JSON through `config edit` rather than through per-scope controls |
 
 ## Glossary

@@ -15,7 +15,8 @@ const pointer = record<number>('prompts-revision')
 const snapshots = family<PromptVersion, [number]>('prompts-version:')
 export const defaultPrompts = (): PromptConfig => ({ orchestrator: prompt('orchestrator'), assess: prompt('assess'), work: prompt('work'), shared: '' })
 export const composePrompts = (config: PromptConfig): Record<PromptRole, string> => Object.fromEntries(
-  PROMPT_ROLES.map(role => [role, [config[role], config.shared].filter(value => value.trim()).join('\n\n')]),
+  PROMPT_ROLES.map(role => [role, [config[role], role === 'orchestrator' ? `## Assessment policy for inferred candidates only\n\n${config.assess}` : '', config.shared]
+    .filter(value => value.trim()).join('\n\n')]),
 ) as Record<PromptRole, string>
 
 export class Prompts {

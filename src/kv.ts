@@ -3,7 +3,7 @@
  * Readers and writers refer to a record by its entry here so each key is spelled once with its value type.
  */
 import type { SettingsVersion } from './store/store.ts'
-import type { SettingsSave } from './policy.ts'
+import type { Settings, SettingsSave } from './policy.ts'
 
 /** Key of a KV record whose value has type `V`; a plain string represents an untyped key. */
 export type Key<V> = string & { readonly __value?: V }
@@ -20,7 +20,7 @@ export const KV = {
   /** Store: current database schema version. */
   store: { schema: record<number>('schema') },
   /** Runtime facts a read command needs but must not re-derive, such as the account the agent acts as. */
-  runtime: { account: record<{ login: string; noreply: string }>('runtime-account') },
+  runtime: { account: record<{ login: string; noreply: string }>('runtime-account'), appliedSettings: record<Settings>('runtime-applied-settings') },
   /** Settings: current revision and saved settings snapshots (including the current one). */
   settings: { revision: record<number>('settings-revision'), block: family<number, [block: SettingsSave]>('settings-block-revision:'),
     version: family<SettingsVersion, [revision: number]>('settings-version:') },

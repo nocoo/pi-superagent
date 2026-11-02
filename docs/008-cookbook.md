@@ -39,7 +39,24 @@ interface SourceKind<C> {
 | `policy` | senders have no identity of their own | that `allowed` and `bots` in this Source's policy part are well formed |
 
 `start` returns a stop function. The Host calls it on shutdown before it closes the store, so it must be safe to call
-once and must not throw.
+once and must not throw. A Source with an external push or CLI ingress and no background loop can report ready and return
+a no-op stop function.
+
+## The generic Inbox
+
+`src/sources/inbox.ts` is the minimal external-event entry. `InboxEventSchema` accepts a strict `{system,id,thread,actor,text,
+human?,addressed?,url?,meta?}` shape. `inboxTrigger` maps it to a `Trigger` with stable `key('inbox', system, id)`, namespaced
+threads and actors, protected metadata keys, and a Channel address containing `system`, `thread`, and `event`.
+
+```sh
+pi-superagent config set --inbox --inbox-allowed 'linear:alice@example.com' --inbox-observed linear
+pi-superagent source receive --file event.json
+pi-superagent source replies --system linear --limit 20
+```
+
+Inbox does not open a network server or poll. External scripts call runtime IPC through `source receive`; replies are
+appended locally to `<stateDir>/inbox/replies.jsonl` and read by `source replies`. Its directory and JSONL file use
+private permissions, and every outbound message is deduplicated by message id.
 
 ## A worked example: a drop directory
 

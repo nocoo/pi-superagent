@@ -89,7 +89,7 @@ current values — so it is edited as JSON through `pi-superagent config edit` (
 
 ### Bots and automated reviewers
 
-The host recognizes GitHub Apps, logins ending in `[bot]`, and Feishu bots as bots. A Source can list bots such as
+The host recognizes GitHub Apps and logins ending in `[bot]` as bots. A Source can list bots such as
 `dependabot[bot]` whose messages may become inferred candidates. They must either address the agent or post in a scope
 that receives every message. They cannot make explicit requests or stop Tickets.
 
@@ -120,28 +120,28 @@ Two rules ship enabled:
 A team adds rules for the proactive work it wants. Rules are prompt text with an identity, not code: they are read by
 the model during an assessment and recorded on the Mandate for audit.
 
-## The one difference from the original
+## Coordinator routing and assessment
 
-The original routes an **explicit** request with a routing session that decides accept, attach, stop or ignore
-directly, without judging it against the rules. `pi-superagent` has no routing session: an explicit request is
-assessed like a proactive one, and therefore **needs at least one matching rule**.
+The persistent `PiCoordinator` is now the first route for a candidate. It has typed tools for investigation and domain
+management, and it decides accept, attach, stop or ignore through the Engine rather than by directly changing state.
+For inferred candidates it evaluates the enabled rules and returns an assessment outcome. For explicit requests it may
+route to an existing Ticket or take an explicit Decision directly, while still recording the result in the domain.
 
-The consequence, stated plainly: in this build a listed person who asks for something that no rule covers gets
-`ignore` with reason `noRuleMatched`. The original would have routed it. Operationally this means:
+The Policy still has the final authority: typed tool results and model judgement must pass the gate, the enabled rule
+schema, the admission table, and the same revalidation rules as any other Decision. `observe` mode records and reviews
+inferred work; it does not make model text a Mandate or ticket state.
 
-- A deployment must write a rule broad enough to cover what its team will ask for, or add one per kind of work.
-- `observe` mode still records `would_accept` for inferred work, so a team can review decisions before trusting them.
-- An explicit request is **not** downgraded by the accept mode: the `observe` downgrade applies only to
-  `strength === 'inferred'`, so an explicit request that matches a rule is accepted even in `observe` mode. That
-  asymmetry is deliberate — the accept mode governs proactive work, not requests a person made.
-
-Closing this gap means adding the routing path from the original, which is a change to `Eval` and a new surface for
-people, not a change to the gate.
+Inbox identity is namespaced by system. An external event `actor: alice@example.com` in `system: linear` becomes
+`linear:alice@example.com` internally, and the Inbox policy allowlist should contain that same `system:actor` identifier.
+Both namespaced and email characters are valid external IDs; matching is source-specific and never maps identities across
+systems.
 
 ## Policy version
 
-Rules, accept mode and each Source's Policy form the Policy version, computed as a hash of exactly those three things —
-so a change to models, concurrency, the pause flag or polling intervals does not invalidate existing decisions.
+Rules, accept mode, each Source's Policy and the receiver configuration form the Policy version. Receiver configuration
+is included conservatively: disabling a Source or narrowing its channels must invalidate pending evaluations, including
+across a restart. Changing a polling setting therefore also changes the version. Role models, worker concurrency and
+the pause flag do not. The gate checks current listening scope again when an event is replayed.
 
 Every Mandate records the version under which it was accepted. A version change discards running Evals and queues
 their Triggers again. It also sends a policy-changed Input to each affected live Ticket, explaining whether a matched

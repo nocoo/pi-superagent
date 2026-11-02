@@ -6,15 +6,16 @@ builds on [005 CLI](005-cli.md).
 
 ## Two ways to drive it
 
-The agent works one repository. What wakes it up is a Source, and this build has two:
+The agent is a local task runtime, not only a GitHub bot. What wakes it up is a Source, and this build has three:
 
 | Source | Needs | Use |
 | --- | --- | --- |
-| `github` | a repository and an agent account | the product: issues, pull requests, CI |
-| `im` | nothing but this machine | working on a target without GitHub; see [009](009-bootstrap.md) |
+| `github` | optional repository and agent account | issues, pull requests, CI and GitHub conversations |
+| `im` | nothing but this machine | local interactive or scripted channels; see [009](009-bootstrap.md) |
+| `inbox` | one external event producer and runtime IPC | generic IM, ticket, support or other external events |
 
-Both may run at once. A deployment with only `im` needs no GitHub account at all, which is what makes it usable as a
-workbench.
+GitHub may be omitted. Inbox and IM may run without a repository or `gh`, so the same runtime can handle non-coding tasks
+and maintain a local workbench.
 
 ## Prerequisites
 
@@ -23,7 +24,7 @@ workbench.
 | Node.js 22.19 or newer | `node:sqlite` and the TypeScript build target |
 | `gh` 2.48 or newer | every GitHub read and write goes through it |
 | `git` | the `prepare` command creates worktrees |
-| Pi 1.4 with a configured model | the Executor and Assessor run on Pi sessions |
+| Pi SDK 1.4.0 with a configured model | the persistent coordinator and worker sessions use Pi |
 
 ```sh
 pnpm install
@@ -68,7 +69,7 @@ pi-superagent is watching nocoo/pi-superagent as @pi-agent; state in ~/.pi-super
 
 If that line names the operator's own login, stop and fix it before letting the agent run.
 
-The account needs push access to the repository. Everything the agent writes appears under this name, and its commits
+When GitHub is enabled, the account needs push access to the repository. Everything the agent writes appears under this name, and its commits
 use the account's `users.noreply.github.com` address so they are attributable.
 
 ## Model routes
@@ -96,10 +97,10 @@ Two roles have models:
 
 | Role | Setting | Default |
 | --- | --- | --- |
-| Assessment | `eval.model` | Pi's configured default |
+| Coordinator / assessment | `eval.model` | Pi's configured default |
 | Worker | `executor.model` | Pi's configured default |
 
-Assessments are short and frequent; workers are long and rare. Pointing them at different models is the normal
+Coordinator assessment turns are short and frequent; workers are long and rare. Pointing them at different models is the normal
 arrangement.
 
 ## Configure
@@ -115,9 +116,9 @@ pi-superagent config set \
 `--allowed` is the whole list, so naming one login removes the others; `config set` lists what it would remove and needs
 `--yes` before it does. Use `--add-allowed` to widen.
 
-Then review the rules. **An explicit request must match a rule** in this build
-([002](002-authorization.md#the-one-difference-from-the-original)), so a deployment whose team asks for something no
-rule covers gets `ignore` with reason `noRuleMatched`. Ship at least one rule per kind of work the team will ask for:
+Then review the rules. The persistent coordinator routes and assesses requests through the current Policy
+([002](002-authorization.md#coordinator-routing-and-assessment)). An accepted result still needs a settled direction and a
+matching enabled rule where the Policy requires it. Ship at least one rule per kind of work the team will ask for:
 
 ```sh
 pi-superagent config show --json | jq '.policy.rules'
@@ -133,7 +134,9 @@ does not hold back requests a listed person made; it holds back proactive work.
 ~/.pi-superagent/state/            the state directory
   superagent.sqlite                aggregates, settings, effect queue, receipts
   superagent.sqlite-wal            SQLite write-ahead log
-  sessions/worker-<ticketId>.jsonl one Pi session per Ticket, resumed across restarts
+  sessions/coordinator.jsonl       persistent Pi main/coordinator session
+  sessions/worker-<ticketId>.jsonl one Pi worker session per Ticket, resumed across restarts
+  inbox/replies.jsonl              local Inbox adapter deliveries, deduplicated by message id
   work/<name>-<id>/                Ticket directories, unless executor.directory says otherwise
 ~/.pi-superagent/state.lock/       held while a process is running
 ```
@@ -153,6 +156,24 @@ Keep the command idempotent-safe: create the directory only as the last step, as
 
 Without a prepare command the worker starts in an empty directory — useful for probing, useless for code.
 
+## Inbox and local IM
+
+Enable Inbox and configure namespaced allowlists through the CLI:
+
+```sh
+pi-superagent config set --inbox \
+  --inbox-allowed 'linear:alice@example.com' 'teams:team@example.com' \
+  --inbox-observed linear teams
+
+pi-superagent source receive --file event.json
+pi-superagent source receive --file -
+pi-superagent source replies --system linear --limit 20
+```
+
+Inbox events are strict JSON objects. The event's `system` is a slug, `id`, `thread`, and `actor` are bounded, and
+`text` is trimmed and non-empty. Replies are appended to `stateDir/inbox/replies.jsonl` with private permissions; they are
+local adapter deliveries, not remote delivery acknowledgements.
+
 ## Run it
 
 ```sh
@@ -167,7 +188,13 @@ pi-superagent status
 pi-superagent status --check          # exits 1 when work needs a person
 ```
 
-### Keep it running
+### Management panel
+
+`pi-superagent web --port 7062` starts a loopback-only CLI bridge for the management panel. It uses the local CLI process
+and runtime control IPC; it is not a network API or a separate server. In the normal deployment, expose
+`https://superagent.dev.hexly.ai` to loopback port 7062 through Caddy or the machine's proxy configuration.
+
+## Keep it running
 
 macOS, `~/Library/LaunchAgents/dev.pi-superagent.plist`:
 
@@ -237,6 +264,8 @@ reached and which of them owns it — which is what distinguishes "it never arri
 
 ## What this build does not do
 
-It runs one repository, on one machine, as one user, with GitHub as its only Source. There is no panel, no second
-Source, and no way for two instances to talk to each other. [001](001-domain.md#what-this-repository-does-not-have-yet)
+It runs one process, one state directory and one set of Pi sessions on one machine as one user. GitHub is optional;
+local IM and Inbox are available, while the web panel is a CLI bridge. Two instances need separate state directories.
+Pi MCP, skills and extensions are dynamically discovered through the SDK resource loader. This project does not add a
+background-job supervisor or subagent framework. [001](001-domain.md#what-this-repository-does-not-have-yet)
 keeps the list.

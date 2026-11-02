@@ -3,7 +3,7 @@
   "version": "0.0.2",
   "private": true,
   "license": "MIT",
-  "description": "A proactive multi-task agent for one repository. The domain core of dsh-superagent, with the agent runtime replaced by Pi.",
+  "description": "A CLI-first general-purpose multi-task agent with persistent Pi coordination and a local management panel.",
   "type": "module",
   "main": "lib/index.js",
   "bin": {
@@ -14,28 +14,40 @@
   },
   "files": [
     "lib",
-    "prompts"
+    "prompts",
+    "web/dist"
   ],
   "engines": {
     "node": ">=22.19.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json",
     "test": "pnpm build && vitest run",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test",
+    "dev": "pnpm build && node lib/cli.js web",
+    "test:live": "pnpm build && node scripts/probe-system.ts"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.4.0",
+    "@nocoo/basalt": "3.2.1",
     "commander": "^15.0.0",
+    "lucide-react": "^1.66.0",
     "proper-lockfile": "4.1.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typebox": "1.4.3",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "22.20.0",
     "@types/proper-lockfile": "4.1.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "typescript": "6.0.3",
+    "vite": "^8.3.5",
     "vitest": "4.1.12"
   }
 }

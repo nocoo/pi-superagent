@@ -46,7 +46,8 @@ describe('versioned prompts', () => {
   })
   it('previews the same composition a runtime reads without saving', () => {
     const { prompts } = fixture()
-    expect(composePrompts(config)).toEqual({ orchestrator: 'Route requests\n\nBe concise', assess: 'Investigate\n\nBe concise', work: 'Perform the task\n\nBe concise' })
+    expect(composePrompts(config)).toEqual({ orchestrator: 'Route requests\n\n## Assessment policy for inferred candidates only\n\nInvestigate\n\nBe concise',
+      assess: 'Investigate\n\nBe concise', work: 'Perform the task\n\nBe concise' })
     expect(prompts.current().revision).toBe(0)
   })
 })

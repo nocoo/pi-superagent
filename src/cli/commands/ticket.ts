@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 /** `ticket`: authorized work, grouped by the stage that decides whom it waits for, with the mandate that allows it. */
-import { ticketStage, type Assignment, type Ticket, type TicketInput } from '../../core/index.ts'
+import { canRetry, ticketStage, type Assignment, type Ticket, type TicketInput } from '../../core/index.ts'
 import { CliError } from '../errors.ts'
 import { openForRead, resolveId } from '../context.ts'
 import { age, clip, count, emit, line, short, table, type Cli } from '../output.ts'
@@ -30,7 +30,7 @@ export function ticketList(cli: Cli, options: { stage?: string; all?: boolean; l
   const store = openForRead(cli)
   try {
     const limit = options.limit
-    const all = options.all ? store.tickets.list() : store.tickets.open()
+    const all = options.all || options.stage === 'ended' ? store.tickets.list() : store.tickets.open()
     const wanted = options.stage as (typeof STAGES)[number] | undefined
     if (wanted && !STAGES.includes(wanted)) throw new CliError('usage', `--stage ${wanted} is not one of ${STAGES.join(', ')}`)
     const rows = all.map(ticket => ({ ticket, stage: ticketStage(ticket).stage })).filter(item => !wanted || item.stage === wanted)
@@ -40,7 +40,7 @@ export function ticketList(cli: Cli, options: { stage?: string; all?: boolean; l
       return items.length ? [{ stage, items }] : []
     })
 
-    emit(cli, 'ticket list', { tickets: rows.map(item => ({ ...item.ticket, stage: item.stage })) }, () => {
+    emit(cli, 'ticket list', { tickets: rows.map(item => ({ ...item.ticket, stage: item.stage, summary: outcome(item.ticket) })) }, () => {
       if (!grouped.length) { line(options.all ? 'no tickets' : 'no open tickets'); return }
       for (const [index, group] of grouped.entries()) {
         if (index) line()
@@ -62,7 +62,10 @@ export function ticketShow(cli: Cli, id: string): void {
     const ticket = findTicket(store, id)
     const trigger = store.triggers.get(ticket.origin.triggerId)
 
-    emit(cli, 'ticket show', { ticket, origin: trigger }, () => {
+    emit(cli, 'ticket show', { ticket, origin: trigger, stage: ticketStage(ticket), actions: {
+      stop: !ticket.ended, retry: canRetry(ticket), answer: !ticket.ended && !!ticket.attention,
+      note: !ticket.ended, attach: ticket.ended?.by !== 'human', requestStatus: !ticket.ended && ticket.assignments.at(-1)?.report?.state === 'waiting',
+    } }, () => {
       line(`${clip(ticket.title, 60)}  ${short(ticket.id)}`)
       line(`${stageName(ticket)} · ${outcome(ticket)}`)
       line()

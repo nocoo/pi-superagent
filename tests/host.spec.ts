@@ -57,6 +57,8 @@ describe('the host', () => {
     let started = 0
     root.register({ kind: 'github', health: ['github'], schema: z.object({ pollSeconds: z.number() }),
       start: () => { started += 1; return () => {} } } as never)
+    expect(started).toBe(0)
+    root.start()
     expect(started).toBe(1)
     const context = root.context({ kind: 'github', health: ['github'] })
     expect(context.config<{ pollSeconds: number }>('github')?.pollSeconds).toBe(120)
@@ -80,6 +82,11 @@ describe('prepareTicket', () => {
     expect(prepared.execution?.name).toBe('fix-typo-t-0123456789')
     expect(prepared.execution?.directory).toBe('/state/work/fix-typo-t-0123456789')
     expect(prepared.execution?.assignment).toContain('Copy fixes (copy): Fix typos.')
+  })
+
+  it('rejects a task name that escapes its execution root', () => {
+    expect(() => prepareTicket(ticket, { kind: 'accept', title: 't', scope: 's', reason: 'r', name: '../elsewhere' }, settings, '/state'))
+      .toThrow('path separators')
   })
 
   it('keeps a routing note separate from the source request', () => {
@@ -117,6 +124,17 @@ describe('recovery', () => {
     expect(after.assignments[0]!.state).toBe('ended')
     expect(after.assignments[0]!.endedReason).toMatch(/restart/i)
     expect(after.assignments[1]!.state).toBe('pending')
+  })
+
+  it('requeues a pending assignment that has no launch effect after restart', async () => {
+    const root = host()
+    root.store.saveSettings({ paused: true })
+    root.store.tickets.save({ ...ticket, assignments: [{ id: 'pending', state: 'pending', createdAt: ticket.createdAt }] })
+    root.start()
+    expect(root.effects.pending('launch', 'pending')).toBe(true)
+    expect(root.store.tickets.get('t1')?.assignments).toHaveLength(1)
+    await root.stop()
+    await expect(root.stop()).resolves.toBeUndefined()
   })
 
   it('leaves an assignment that already reported a state a person must see', async () => {

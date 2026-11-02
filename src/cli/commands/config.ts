@@ -3,13 +3,14 @@
  * changed — a configuration the operator cannot see is worse than one they have to type.
  */
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SettingsSchema, policyVersion, type Settings } from '../../policy.ts'
 import { KV } from '../../kv.ts'
 import { CliError } from '../errors.ts'
-import { openForRead, openForWrite } from '../context.ts'
+import { openForRead } from '../context.ts'
+import { writeInstance } from './manage.ts'
 import { clip, emit, line, table, type Cli } from '../output.ts'
 
 /** A field that changed, with the values a person can compare. */
@@ -33,7 +34,7 @@ export function configShow(cli: Cli): void {
     const github = settings.sources.github?.config as { repository?: string; cli?: string } | undefined
     const enabled = settings.policy.rules.filter(rule => rule.enabled)
 
-    emit(cli, 'config show', { settings, account, policyVersion: policyVersion(settings) }, () => {
+    emit(cli, 'config show', { settings, account, revision: store.get(KV.settings.revision) ?? 0, policyVersion: policyVersion(settings) }, () => {
       table([
         ['repository', github?.repository ?? '—'],
         ['account', account ? `@${account.login} via ${github?.cli ?? 'gh'}` : 'resolved when the agent starts'],
@@ -56,10 +57,12 @@ export function configShow(cli: Cli): void {
   } finally { store.close() }
 }
 
-export function configSet(cli: Cli, options: Record<string, unknown>): void {
-  const store = openForWrite(cli)
-  try {
-    const before = store.settings()
+export async function configSet(cli: Cli, options: Record<string, unknown>): Promise<void> {
+  const store = existsSync(join(cli.stateDir, 'superagent.sqlite')) ? openForRead(cli) : undefined
+  const before = store?.settings() ?? SettingsSchema.parse({})
+  const revision = store?.get(KV.settings.revision) ?? 0
+  store?.close()
+  {
     const after = apply(before, options)
     const changes = diff(before, after)
     const dry = options.dryRun === true
@@ -74,8 +77,7 @@ export function configSet(cli: Cli, options: Record<string, unknown>): void {
       return
     }
     if (!dry) {
-      store.saveSettings(after, { source: 'internal', block: 'policy', policyVersion: policyVersion(after),
-        policyChanged: policyVersion(after) !== policyVersion(before), notified: [] })
+      await writeInstance(cli, { action: 'settings.save', payload: { value: after, baseRevision: revision } })
     }
 
     emit(cli, 'config set', { changes, dryRun: dry, policyVersion: policyVersion(after) }, () => {
@@ -86,7 +88,7 @@ export function configSet(cli: Cli, options: Record<string, unknown>): void {
       }
       line(dry ? 'dry run — nothing written' : 'written')
     })
-  } finally { store.close() }
+  }
 }
 
 /** Applies the flags over the stored settings, leaving every field they do not name untouched. */
@@ -138,26 +140,13 @@ function apply(settings: Settings, options: Record<string, unknown>): Settings {
       part.allowed = (options.imAllowed as string[]).map(id => ({ id }))
     }
   }
-  if (typeof options.mode === 'string') {
-    if (!['off', 'observe', 'auto'].includes(options.mode)) throw new CliError('usage', `--mode ${options.mode} is not off, observe or auto`)
-    next.eval.mode = options.mode as Settings['eval']['mode']
-  }
-  if (typeof options.model === 'string') next.executor.model = { ...roleModel(options.model, '--model'), ...effort(next.executor.model) }
-  if (typeof options.assessModel === 'string') next.eval.model = { ...roleModel(options.assessModel, '--assess-model'), ...effort(next.eval.model) }
-  if (typeof options.maxWorkers === 'number') {
-    if (options.maxWorkers < 1) throw new CliError('usage', `--max-workers must be at least 1, not ${options.maxWorkers}`)
-    next.executor.maxWorkers = options.maxWorkers
-  }
-  if (typeof options.prepare === 'string') next.executor.prepare = options.prepare
-  if (options.im === true) {
-    const im = (next.sources.im ??= { enabled: true, config: {} })
-    im.enabled = true
-    const imConfig = im.config as Record<string, unknown>
-    if (typeof options.imAgent === 'string') imConfig.agent = options.imAgent
-    if (Array.isArray(options.imObserved)) imConfig.observed = options.imObserved as string[]
-    if (Array.isArray(options.imAllowed)) {
-      const part = (next.policy.sources.im ??= { allowed: [], admission: {} })
-      part.allowed = (options.imAllowed as string[]).map(id => ({ id }))
+  if (options.inbox === true || options.inboxAllowed !== undefined || options.inboxObserved !== undefined) {
+    const inbox = (next.sources.inbox ??= { enabled: true, config: {} })
+    inbox.enabled = true
+    if (Array.isArray(options.inboxObserved)) inbox.config.observed = options.inboxObserved
+    if (Array.isArray(options.inboxAllowed)) {
+      const part = (next.policy.sources.inbox ??= { allowed: [], admission: {} })
+      part.allowed = (options.inboxAllowed as string[]).map(id => ({ id }))
     }
   }
   if (options.pause === true) next.paused = true
@@ -192,6 +181,9 @@ function diff(before: Settings, after: Settings): Change[] {
   const nowIm = after.sources.im?.config as Record<string, unknown> | undefined
   compare('im-obs', wasIm?.observed as string[] | undefined, nowIm?.observed as string[] | undefined)
   compare('im-allowed', before.policy.sources.im?.allowed.map(entry => entry.id), after.policy.sources.im?.allowed.map(entry => entry.id))
+  compare('inbox', before.sources.inbox?.enabled, after.sources.inbox?.enabled)
+  compare('inbox-allowed', before.policy.sources.inbox?.allowed.map(entry => entry.id), after.policy.sources.inbox?.allowed.map(entry => entry.id))
+  compare('inbox-observed', before.sources.inbox?.config.observed, after.sources.inbox?.config.observed)
   compare('rules', rulesOf(before), rulesOf(after))
   compare('admission', admissionOf(before), admissionOf(after))
   compare('bots', botsOf(before), botsOf(after))
@@ -228,10 +220,11 @@ const removedLogins = (before: Settings, after: Settings): string[] => {
 }
 
 /** Opens the settings in `$EDITOR` for the parts flags cannot express: rules, the admission table, bots. */
-export function configEdit(cli: Cli): void {
+export async function configEdit(cli: Cli): Promise<void> {
   const store = openForRead(cli)
   let before: Settings
-  try { before = store.settings() } finally { store.close() }
+  let revision: number
+  try { before = store.settings(); revision = store.get(KV.settings.revision) ?? 0 } finally { store.close() }
 
   const editor = process.env.EDITOR ?? process.env.VISUAL
   if (!editor) throw new CliError('failed', 'no editor configured', 'set $EDITOR, or use config set for the fields it supports')
@@ -256,11 +249,7 @@ export function configEdit(cli: Cli): void {
     const after = validated.data
     const changes = diff(before, after)
     if (!changes.length) { line('nothing to change'); return }
-    const writer = openForWrite(cli)
-    try {
-      writer.saveSettings(after, { source: 'internal', block: 'policy', policyVersion: policyVersion(after),
-        policyChanged: policyVersion(after) !== policyVersion(before), notified: [] })
-    } finally { writer.close() }
+    await writeInstance(cli, { action: 'settings.save', payload: { value: after, baseRevision: revision } })
     table(changes.map(change => [change.field, clip(change.before, 60), '→', clip(change.after, 60)]))
     line('written')
   } finally { rmSync(directory, { recursive: true, force: true }) }

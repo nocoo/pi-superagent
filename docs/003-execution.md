@@ -80,14 +80,18 @@ changes nothing about a Ticket; only the tool call does. `src/agents/report-tool
 | `failed` | The worker could not finish |
 | `dropped` | There is nothing to do after all |
 
-`blocked` and `ready` may carry one question for a person, which becomes the Ticket's Attention and routes to the
-conversation the request came from. A worker that finds nothing to do reports `dropped` rather than inventing a change.
+A non-`ready` report may carry one question for a person, which becomes the Ticket's Attention and routes to the
+conversation the request came from. A question cannot be combined with a ready result or an answer. `question: null`
+clears a previous question. A ready result completes a task with no followed external lifecycle; a bound PR can keep it
+open for review. A worker that finds nothing to do reports `dropped` rather than inventing a change.
 
 ### End of turn
 
 `agent_settled` marks the end of a turn for the Ticket's purposes: Pi will not continue on its own. That is when the
-Engine records `turnEnded`, which is what makes `idle` observable and what lets the Ticket's end count an unread
-message as released.
+Engine records `turnEnded` and the executor releases its slot. A turn with no final report becomes `waiting`.
+Input batches are marked delivered/read only when their actual user message enters Pi's context (`message_end`), not
+merely when a turn starts: Pi may consume only one queued correction per turn. An unconsumed correction remains durable
+and can be released or retried. A prompt preflight failure leaves every pending input, including operator notes, intact.
 
 ## Preparing a Ticket directory
 
@@ -115,7 +119,9 @@ waits behind new work. This is a consequence of steering rather than an extra me
 
 ## Execution variables
 
-The prepare command and the worker's instructions receive the same variables. None contains a credential.
+The prepare command receives the variables below. Workers receive their task directory through Pi's `cwd`, and their
+scope and optional repository through task instructions; these variables are not injected into every worker shell.
+None of the prepare variables contains a credential.
 
 | Variable | Value |
 | --- | --- |
@@ -130,8 +136,9 @@ anything that user can. Isolation requires running the process as a different us
 
 ## Recovery
 
-A `launch` or `delivery` that fails is retried from the durable effect queue with exponential backoff, so a crash or a
-transient model error does not lose work.
+`launch`, `delivery`, `assessment`, and `reply` effects use the durable effect queue. Ordinary failures leave a row in
+that queue and are retried with backoff; `Later` reschedules without counting as a provider failure. A crash leaves running
+rows for the next start. The queue improves recovery, but it is not a Pi durable-job implementation or a subagent supervisor.
 
 On startup the host reports every Assignment that was mid-flight through `Engine.assignmentInterrupted`, which restarts
 it with a recovery note: *the host restarted during this ticket; inspect the worktree, git history and GitHub state
@@ -148,8 +155,8 @@ difference in what the agent does, not a cosmetic gap.
 | --- | --- |
 | Background jobs | The original moved a foreground shell command to a background job after five seconds, so a long command did not hold back the worker's next step. Here a command blocks the turn until it finishes. Steering still works, because the correction lands at the next model request, but the agent cannot act while a command runs. |
 | Handoff of background work | The original let shell jobs outlive a handoff without holding the slot, waking the worker with their result later — which is what let a worker offer a running server for review. There are no jobs to hand off here. |
-| Retry of transient model failures | The original classified provider errors (408, 429, 5xx, socket resets) and resumed the turn after a backoff. Here a failed turn surfaces as a failed Ticket, and the effect queue retries only the launch. |
-| Subagents | The original let a worker spawn subagents under a narrower preset. Pi supports nested sessions, but this adapter does not expose a tool for it, so a worker works alone. |
+| Provider-specific model retry classification | The effect queue retries failed operations with a common backoff. Pi session turns are not transparently resumed across provider 408/429/5xx errors; the worker or coordinator records the failure and the host recovers or reports it. |
+| Subagents | The original let a worker spawn subagents under a narrower preset. Pi SDK 1.4 may support session primitives, but this project does not expose or supervise subagents; a worker works alone. |
 
 Speculative execution — starting work before it is known to be wanted — was never implemented in the original either
 and is not implemented here. It belongs to [002](002-authorization.md)'s accept modes, not to the Executor.

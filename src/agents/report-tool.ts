@@ -12,7 +12,7 @@ const STATES = ['progress', 'waiting', 'ready', 'blocked', 'failed', 'dropped'] 
  * Builds the report tool for one ticket. `submit` receives a validated report; `askedBy` names the person's trigger
  * whose request raised the question, so the question reaches the conversation it came from.
  */
-export function reportTool(submit: (report: WorkerReport) => void, askedBy: () => string | undefined) {
+export function reportTool(submit: (report: WorkerReport, prNumber?: number, signal?: AbortSignal) => void | Promise<void>, askedBy: () => string | undefined) {
   return defineTool({
     name: 'report',
     label: 'Report',
@@ -27,17 +27,22 @@ Set question to ask a person one concrete thing; the ticket then waits for their
     parameters: Type.Object({
       state: Type.Unsafe<ReportState>({ type: 'string', enum: [...STATES] }),
       summary: Type.String({ minLength: 1, maxLength: 4000, description: 'What you did or found, in the source language of the request.' }),
-      question: Type.Optional(Type.String({ minLength: 1, maxLength: 1000, description: 'One concrete question for a person. Use only with blocked, or instead of a ready result when you need a decision.' })),
+      question: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 1000 }), Type.Null()],
+        { description: 'One question when blocked or in progress; null clears a previous question. Do not combine a question with ready or answers.' })),
+      asked_by: Type.Optional(Type.String({ description: 'The trigger id of the human request that raised the question.' })),
+      answers: Type.Optional(Type.String({ description: 'The trigger id of the human question this report answers.' })),
+      pr_number: Type.Optional(Type.Integer({ minimum: 1, description: 'Optional GitHub PR to validate and bind before recording this report. Omit for non-GitHub work.' })),
     }, { additionalProperties: false }),
-    execute: async (_id, params) => {
+    execute: async (_id, params, signal) => {
       const report: WorkerReport = {
         state: params.state,
         summary: params.summary,
-        ...params.question ? { question: params.question } : {},
-        ...params.question && askedBy() ? { askedBy: askedBy() } : {},
+        ...params.question !== undefined ? { question: params.question } : {},
+        ...params.question ? { askedBy: params.asked_by || askedBy() } : {},
+        ...params.answers ? { answers: params.answers } : {},
       }
-      submit(report)
-      return { content: [{ type: 'text' as const, text: `Recorded ${report.state}.` }], details: {} }
+      await submit(report, params.pr_number, signal)
+      return { content: [{ type: 'text' as const, text: `Recorded ${report.state}.` }], details: {}, terminate: report.state !== 'progress' }
     },
   })
 }
@@ -47,7 +52,7 @@ Set question to ask a person one concrete thing; the ticket then waits for their
  * cover. Handing it back queues it for a fresh Eval, which is how a second request in the same channel becomes a ticket
  * of its own instead of being absorbed by the first.
  */
-export function handbackTool(submit: (triggerId: string) => boolean) {
+export function handbackTool(submit: (triggerId: string, reason: string) => boolean) {
   return defineTool({
     name: 'handback',
     label: 'Hand back',
@@ -63,7 +68,7 @@ Do not use it for a message that is within scope.`,
       reason: Type.String({ minLength: 1, maxLength: 300, description: 'Why it is beyond this ticket, in one short sentence.' }),
     }, { additionalProperties: false }),
     execute: async (_id, params) => {
-      const queued = submit(params.trigger_id)
+      const queued = submit(params.trigger_id, params.reason)
       return { content: [{ type: 'text' as const, text: queued
         ? 'Handed back. This message is no longer this ticket\'s: stop working on it, change nothing for it, and report only what you did for this ticket.'
         : 'Handed back. Stop working on this message.' }], details: {} }

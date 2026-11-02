@@ -44,10 +44,10 @@ silent choice.
 **The defects are not listed in `examples/ledger/README.md`**, because a target whose answer is in its own documentation
 tests reading, not judgement. This document is the list, and it is for the operator.
 
-## The surface
+## The surfaces
 
-Everything goes through the local IM ([006](006-deployment.md) has the configuration), and the IM is reachable only
-through the command line:
+The historical ledger exercise used local IM ([006](006-deployment.md) has the configuration). The command line remains
+the primary surface, and Inbox can replace IM for an external script:
 
 ```sh
 pi-superagent chat general                      # read the channel, and talk in it
@@ -78,8 +78,8 @@ pi-superagent config set \
   creates the directory works.
 - `--mode auto` accepts inferred candidates. Run `observe` first if the rules are new.
 
-One rule has to cover the target, because in this build an explicit request must still match a rule
-([002](002-authorization.md#the-one-difference-from-the-original)):
+One rule can cover the target. The persistent coordinator routes and assesses work through the current Policy; every
+accepted Ticket still needs the configured rules and a settled direction under [002](002-authorization.md):
 
 ```sh
 pi-superagent config edit    # add a rule, for example
@@ -97,7 +97,11 @@ pi-superagent run            # one shell
 node scripts/drive-ledger.ts # another: says what a person would say
 ```
 
-The script only calls `pi-superagent chat`, so it exercises exactly the surface a person uses. It says five things:
+The historical ledger script calls `pi-superagent chat`, so it exercised the local IM surface. For a generic external
+source, a script can instead call `pi-superagent source receive --file -` and read replies with
+`pi-superagent source replies`. That is the supported Inbox bootstrap path, with no HTTP service required.
+
+The ledger script says five things:
 
 | Said | Exercises |
 | --- | --- |
@@ -107,9 +111,15 @@ The script only calls `pi-superagent chat`, so it exercises exactly the surface 
 | "could you add a web interface?" | an out-of-scope request does not expand the open ticket |
 | "forget the web, check the dates" | a correction reaches a worker that is already running |
 
+## Live system probe
+
+`pnpm test:live` builds the project and runs `scripts/probe-system.ts`, the current opt-in real-model probe. It uses the
+local `magpie/group/coding` model at `127.0.0.1:3425` when the operator has that route configured. It is a live validation
+command, not a unit-test baseline.
+
 ## What a good run looks like
 
-The first measured run, on the ledger target:
+The first historical measured run, on the ledger target:
 
 | Step | Result |
 | --- | --- |

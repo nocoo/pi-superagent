@@ -93,11 +93,10 @@ export const imKind: SourceKind<Config> = {
   health: [SOURCE],
   // A channel listens to everything written in it; whether an unaddressed message becomes a candidate is the admission
   // table's decision, so `observed` is reported for the channels the configuration names.
-  scope: ({ meta }, config) => ({
-    listened: true,
-    observed: config.observed.includes(String(meta.channel)) || config.observed.includes('*') || dm(String(meta.channel)),
-    row: String(meta.channel ?? 'channel'),
-  }),
+  scope: ({ meta }, config) => config.channels.length && !config.channels.includes(String(meta.channel))
+    ? { listened: false, reason: 'channel_not_listened' }
+    : { listened: true, observed: config.observed.includes(String(meta.channel)) || config.observed.includes('*') || dm(String(meta.channel)),
+      row: String(meta.channel ?? 'channel') },
   policy: {
     schema: z.object({
       allowed: z.array(z.object({ id: z.string().regex(/^[A-Za-z0-9._-]+$/) }).strict()).default([]),

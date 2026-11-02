@@ -12,9 +12,6 @@ export interface Deployment {
   github: { cli: string; login: string; noreply: string }
 }
 
-/** Commands a worker may not have blocked, because its own work depends on them. */
-export const WORKER_COMMANDS: readonly string[] = ['gh', 'git']
-
 /** Resolve a command name or absolute path to an executable file. */
 export function executable(name: string, path: string, exclude?: string): string {
   if (name.includes('/') && !isAbsolute(name)) throw new Error(`${name} must be a command name or an absolute path`)

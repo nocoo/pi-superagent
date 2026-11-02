@@ -9,6 +9,7 @@ import type { HealthBoard, HealthEntry } from '../infra/health.ts'
 import type { Store } from '../store/store.ts'
 
 export interface EffectPayloads {
+  coordination: { text: string }
   /** Assess a candidate in the Assessor; the key is the Eval ID. */
   assessment: { triggerId: string }
   /** Launch a pending Assignment; the key is the Assignment ID. */
@@ -128,9 +129,9 @@ export class Effects {
     try { await handler.run(JSON.parse(row.value) as never, row.key) } catch (error) { failure = { error } }
     // Match seq and generation so a row replaced or re-queued while running is not overwritten.
     const own = 'kind = ? AND key = ? AND seq = ? AND generation = ?', ownRow = [kind, row.key, row.seq, row.generation] as const
+    // A shutdown may interrupt a handler that returns normally; replay its durable row and let the handler check current state.
+    if (this.stopped) return
     if (!failure) this.store.db.prepare(`DELETE FROM effect WHERE ${own}`).run(...ownRow)
-    // Leave running rows untouched on shutdown so they retry on the next start.
-    else if (this.stopped) return
     else if (failure.error instanceof Later) {
       this.store.db.prepare(`UPDATE effect SET due = ? WHERE ${own}`).run(this.now() + handler.retry[0], ...ownRow)
     } else {

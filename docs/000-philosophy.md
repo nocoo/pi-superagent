@@ -35,11 +35,12 @@ value than that, or it is removed.
   a concept for it. [001 Domain model](001-domain.md) keeps a table of concepts that were considered and rejected.
 - **Few settings.** A default replaces a setting when one value suits almost every team. Behaviour that a team describes
   in words is prompt text, not a setting.
-- **Prompts are text.** Agent instructions and the assessment policy live in `prompts/*.md`, so a team can change how
-  the agent behaves without touching code, and can read what it was told.
-- **The surfaces show only what needs a person.** Today the only surface is the command line
-  ([005 CLI](005-cli.md)). It lists first what waits for a person, a healthy state takes one line, and every command
-  answers a question an operator actually has rather than exposing an internal structure.
+- **Prompts are text.** Agent instructions live in package prompt files and in versioned instance settings. The team can
+  read what it was told and change the current prompt without replacing the runtime; prompt changes are applied to the
+  next relevant session turn.
+- **The surfaces show only what needs a person.** The command line is the primary and scriptable surface
+  ([005 CLI](005-cli.md)). The web panel is a CLI management bridge for the running instance, not a separate backend or
+  another plugin platform. Both show work by Ticket, decision and Source rather than exposing implementation queues.
 - **Documents read in order.** Each numbered document builds only on the ones before it, so a reader never needs a
   concept that has not been introduced yet.
 

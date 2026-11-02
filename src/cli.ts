@@ -19,6 +19,10 @@ import { ticketList, ticketRead, ticketShow, ticketWait } from './cli/commands/t
 import { configEdit, configSet, configShow } from './cli/commands/config.ts'
 import { run } from './cli/commands/run.ts'
 import { chat } from './cli/commands/chat.ts'
+import { intervention, promptShow, promptHistory, promptPreview, promptSet, promptRestore, configImport, configHistory,
+  search, coordinatorRead, sourceReceive, sourceReplies } from './cli/commands/manage.ts'
+import { ControlError } from './runtime/control.ts'
+import { LookupError } from './infra/identifiers.ts'
 
 const version = (): string => (JSON.parse(readFileSync(join(packageRoot(), 'package.json'), 'utf8')) as { version: string }).version
 
@@ -84,9 +88,16 @@ program.command('status')
   .option('--check', 'exit 1 when something needs a person')
   .action(wrap((cli, options: { check?: boolean }) => status(cli, options)))
 
-program.command('source')
+const sources = program.command('source')
   .description('the Sources: whether they run, what is arriving')
   .action(wrap(cli => source(cli)))
+sources.command('receive').description('receive a standard event from an external system')
+  .requiredOption('--file <path>', 'event JSON file, or - for stdin')
+  .action(wrap((cli, options: { file: string }) => sourceReceive(cli, options)))
+sources.command('replies').description('read replies delivered to external adapters locally')
+  .option('--system <name>', 'only this external system')
+  .option('--limit <n>', 'latest replies', integer, 100)
+  .action(wrap((cli, options: { system?: string; limit: number }) => sourceReplies(cli, options)))
 
 // Following one piece of work
 
@@ -102,9 +113,8 @@ thread.command('show <thread>')
   .option('--limit <n>', 'how many Triggers to show', integer, 30)
   .action(wrap((cli, key: string, options: { limit: number }) => threadShow(cli, key, options)))
 
-program.command('trigger')
-  .description('one Trigger and where it went')
-  .command('show <trigger>')
+const trigger = group('trigger', 'events and where they went')
+trigger.command('show <trigger>')
   .description('one Trigger in full, with its disposition')
   .action(wrap((cli, id: string) => triggerShow(cli, id)))
 
@@ -140,6 +150,35 @@ ticket.command('read <ticket>')
   .option('--lines <n>', 'how many messages to show', integer, 40)
   .action(wrap((cli, id: string, options: { lines: number }) => ticketRead(cli, id, options)))
 
+for (const name of ['stop', 'retry', 'request-status'] as const) {
+  const command = ticket.command(`${name} <ticket>`).description(`${name} a ticket through the running instance`)
+  if (name === 'stop') command.option('--reason <text>', 'why this work is stopped')
+  command.action(wrap((cli, id: string, options: { reason?: string }) => intervention(cli, `ticket.${name}`, id, options)))
+}
+for (const name of ['note', 'answer'] as const) {
+  ticket.command(`${name} <ticket>`).description(name === 'answer' ? 'answer a worker as the local operator' : 'give the worker additional context')
+    .requiredOption('--text <text>', 'the message')
+    .action(wrap((cli, id: string, options: { text: string }) => intervention(cli, `ticket.${name}`, id, options)))
+}
+ticket.command('attach <ticket>').description('attach an existing event to a ticket')
+  .requiredOption('--trigger <id>', 'event to attach').option('--note <text>', 'routing context')
+  .action(wrap((cli, id: string, options: { trigger: string; note?: string }) => intervention(cli, 'ticket.attach', id, options)))
+trigger.command('reevaluate <trigger>').description('queue a fresh evaluation')
+  .action(wrap((cli, id: string) => intervention(cli, 'trigger.reevaluate', id, {})))
+thread.command('unsubscribe <thread>').description('stop following a thread')
+  .action(wrap((cli, id: string) => intervention(cli, 'thread.unsubscribe', id, {})))
+decision.command('dismiss <decision>').description('dismiss an unavailable decision')
+  .action(wrap((cli, id: string) => intervention(cli, 'decision.dismiss', id, {})))
+program.command('search <query>').description('search messages, tasks and conversations')
+  .action(wrap((cli, query: string) => search(cli, query)))
+
+const coordinator = group('coordinator', 'the persistent main session')
+coordinator.command('show').description('session and configuration revisions')
+  .action(wrap(cli => coordinatorRead(cli, { lines: 40 }, true)))
+coordinator.command('read').description('read the main session conversation')
+  .option('--lines <n>', 'messages to show', integer, 40)
+  .action(wrap((cli, options: { lines: number }) => coordinatorRead(cli, options)))
+
 // Configuring
 
 const config = group('config', 'the deployment and the Policy')
@@ -161,6 +200,9 @@ config.command('set')
   .option('--im-agent <name>', 'the name the agent speaks as in the IM')
   .option('--im-observed <channel...>', 'channels whose unaddressed messages are candidates')
   .option('--im-allowed <name...>', 'names that may originate work in the IM')
+  .option('--inbox', 'enable the generic external-event Source')
+  .option('--inbox-allowed <id...>', 'authorized system:actor identities')
+  .option('--inbox-observed <system...>', 'systems whose unaddressed events may become candidates')
   .option('--pause', 'stop starting new work')
   .option('--resume', 'start new work again')
   .option('--dry-run', 'print what would change and write nothing')
@@ -169,6 +211,29 @@ config.command('set')
 config.command('edit')
   .description('edit the stored settings in $EDITOR; parts flags cannot express')
   .action(wrap(cli => configEdit(cli)))
+
+config.command('import').description('save a complete settings document with conflict detection')
+  .requiredOption('--file <path>', 'JSON file, or - for stdin')
+  .requiredOption('--base-revision <n>', 'revision being edited', integer)
+  .action(wrap((cli, options: { file: string; baseRevision: number }) => configImport(cli, options)))
+config.command('history').description('saved configuration revisions')
+  .action(wrap(cli => configHistory(cli)))
+
+const prompts = group('prompt', 'versioned agent instructions')
+prompts.command('show').description('current or historical prompt configuration')
+  .option('--revision <n>', 'revision to read', integer)
+  .action(wrap((cli, options: { revision?: number }) => promptShow(cli, options)))
+prompts.command('history').description('immutable prompt versions').action(wrap(cli => promptHistory(cli)))
+prompts.command('preview').description('compose instructions without saving')
+  .requiredOption('--file <path>', 'JSON file, or - for stdin')
+  .action(wrap((cli, options: { file: string }) => promptPreview(cli, options)))
+prompts.command('set').description('save a prompt configuration')
+  .requiredOption('--file <path>', 'JSON file, or - for stdin')
+  .requiredOption('--base-revision <n>', 'revision being edited', integer)
+  .action(wrap((cli, options: { file: string; baseRevision: number }) => promptSet(cli, options)))
+prompts.command('restore <revision>').description('restore an earlier configuration as a new version')
+  .requiredOption('--base-revision <n>', 'current revision', integer)
+  .action(wrap((cli, revision: string, options: { baseRevision: number }) => promptRestore(cli, integer(revision), options)))
 
 program.command('chat <channel>')
   .description('open the local IM channel, or write one message with --send')
@@ -183,14 +248,26 @@ program.command('run')
   .option('--verbose', 'log every domain event')
   .action(wrap((cli, options: { verbose?: boolean }) => run(cli, options)))
 
+program.command('web').description('serve the local management panel over the CLI')
+  .option('--port <n>', 'loopback port', integer, 7062)
+  .action(wrap(async (cli, options: { port: number }) => {
+    if (options.port < 1 || options.port > 65535) throw new CliError('usage', '--port must be between 1 and 65535')
+    const { startWebServer } = await import('./web/server.ts')
+    const close = await startWebServer({ stateDir: cli.stateDir, cliPath: join(packageRoot(), 'lib', 'cli.js'),
+      staticDir: join(packageRoot(), 'web', 'dist'), port: options.port })
+    process.stderr.write(`Management panel: https://superagent.dev.hexly.ai (127.0.0.1:${options.port})\n`)
+    process.once('SIGINT', () => { void close() })
+    process.once('SIGTERM', () => { void close() })
+  }))
+
 /** Reports a failure in the shape the conventions promise, and returns the process status. */
 function report(error: unknown, json: boolean): number {
-  const known = error instanceof CliError ? error
+  const known = error instanceof CliError || error instanceof ControlError || error instanceof LookupError ? error
     : error instanceof UsageError ? new CliError('usage', error.message)
       : undefined
   if (known) {
     if (json) process.stderr.write(`${JSON.stringify({ command: invoked, error: { code: known.code, message: known.message } })}\n`)
-    else process.stderr.write(`pi-superagent: ${known.message}\n${known.hint ? `  ${known.hint}\n` : ''}`)
+    else process.stderr.write(`pi-superagent: ${known.message}\n${known instanceof CliError && known.hint ? `  ${known.hint}\n` : ''}`)
     return known.code === 'usage' ? EXIT.usage : EXIT.failed
   }
   const message = error instanceof Error ? error.message : String(error)

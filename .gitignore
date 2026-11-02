@@ -1,5 +1,7 @@
 node_modules/
 lib/
+web/dist/
+.local/
 *.log
 .DS_Store
 testdata/

@@ -2,6 +2,7 @@ import { createServer, createConnection, type Server } from 'node:net'
 import { chmod, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { LookupError } from '../infra/identifiers.ts'
 
 const MAX_BYTES = 1_048_576
 const TIMEOUT_MS = 15_000
@@ -36,7 +37,7 @@ export async function serveControl(stateDir: string, execute: (request: ControlR
           const request = RequestSchema.parse(JSON.parse(input.subarray(0, end).toString('utf8')))
           answer({ result: await execute(request) })
         } catch (error) {
-          const code = error instanceof ControlError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError ? 'usage' : 'failed'
+          const code = error instanceof ControlError || error instanceof LookupError ? error.code : error instanceof z.ZodError || error instanceof SyntaxError ? 'usage' : 'failed'
           answer({ error: { code, message: error instanceof Error ? error.message : String(error) } })
         }
       })()

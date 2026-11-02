@@ -5,15 +5,12 @@ import { emit, line, type Cli } from '../output.ts'
 import { resolveAccount } from '../../config.ts'
 import { KV } from '../../kv.ts'
 import { Host } from '../../runtime/host.ts'
-import { githubKind } from '../../sources/github.ts'
-import { imKind } from '../../sources/im.ts'
+import { sourceKinds } from '../../sources/builtins.ts'
+import { serveControl, closeControl } from '../../runtime/control.ts'
 import { policyVersion, type Settings } from '../../policy.ts'
 
 /** How long a graceful stop may take before the process exits anyway. */
 const STOP_TIMEOUT_MS = 15_000
-
-/** The Sources that can be running, by the name a configuration uses. */
-const KINDS = { github: githubKind, im: imKind }
 
 /** The Sources this instance has enabled. A Source kind that is not installed is skipped rather than failing the start. */
 const enabled = (settings: Settings): string[] =>
@@ -24,7 +21,7 @@ export async function run(cli: Cli, options: { verbose?: boolean }): Promise<voi
   let settings: Settings
   try { settings = store.settings() } finally { store.close() }
 
-  const running = enabled(settings).filter(name => name in KINDS)
+  const running = enabled(settings).filter(name => sourceKinds.some(kind => kind.kind === name))
   if (!running.length) {
     throw new CliError('not_configured', 'this instance has no Source enabled', [
       'configure GitHub: pi-superagent config set --repository owner/name',
@@ -44,8 +41,16 @@ export async function run(cli: Cli, options: { verbose?: boolean }): Promise<voi
   if (account) host.store.set(KV.runtime.account, { login: account.login, noreply: account.noreply })
   if (options.verbose) process.env.PI_SUPERAGENT_LOG = '1'
 
-  for (const name of running) host.register(KINDS[name as keyof typeof KINDS] as never)
-  host.start()
+  for (const kind of sourceKinds) host.register(kind)
+  let control
+  try {
+    control = await serveControl(cli.stateDir, request => host.manage(request))
+    host.start()
+  } catch (error) {
+    if (control) await closeControl(control, cli.stateDir)
+    await host.stop()
+    throw error
+  }
 
   emit(cli, 'run', { sources: running, repository: github?.repository, account: account?.login, stateDir: cli.stateDir,
     policy: policyVersion(settings) }, () => {
@@ -63,7 +68,7 @@ export async function run(cli: Cli, options: { verbose?: boolean }): Promise<voi
       process.stderr.write(`${signal}; stopping…\n`)
       const deadline = setTimeout(() => { process.stderr.write('stop took too long; exiting\n'); process.exit(1) }, STOP_TIMEOUT_MS)
       deadline.unref()
-      void host.stop().then(() => resolve(), error => {
+      void closeControl(control, cli.stateDir).then(() => host.stop()).then(() => resolve(), error => {
         process.stderr.write(`stop failed: ${error instanceof Error ? error.message : String(error)}\n`)
         resolve()
       })
