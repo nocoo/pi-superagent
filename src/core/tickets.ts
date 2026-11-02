@@ -18,7 +18,7 @@ export const automatic = (input: TicketInput | undefined): boolean => input?.kin
  */
 const readBefore = (input: Extract<TicketInput, { kind: 'trigger' }>, until: string): boolean => input.readAt === undefined
   ? (input.deliveredAt && input.deliveredAt > input.at ? input.deliveredAt : input.at) <= until : !!input.readAt && input.readAt < until
-const STATUS_REQUEST = 'Report the current ticket status with orchestrator_report. This is a status-only request: do not resume implementation or perform external actions.'
+const STATUS_REQUEST = 'Report the current task status with the report tool. This is a status-only request: do not resume work or perform external actions.'
 
 /**
  * Manages each ticket's lifecycle: creates the ticket for an accept decision with its Mandate, Subscriptions, and first
