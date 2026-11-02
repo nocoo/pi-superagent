@@ -1,5 +1,13 @@
 # Retrospective
 
+## 2026-11-02 — Basalt dashboard rewrite
+
+Importing Basalt controls did not make the old dashboard a Basalt application: it lacked the complete rail/header/island composition, used repeated JSON cards, and duplicated spacing ownership. The rewrite follows the installed 3.2.1 contract and the sibling repository's application templates, not an imagined API. Root exports, avatar sizing and the removal of Lucide brand icons still required checking the actual declarations.
+
+Two template mistakes were caught in the browser: `ResourceList` already owns a PageHeader, and `--basalt-space-96` is a geometry-scale token that produced 384px, not a 96px empty state. Use component-owned headings and natural-height state panels. Native disabled propagation also matters: disabling ChatComposer disables its toolbar fieldset, so the channel selector must live outside it. JSX table cells need explicit sortable primitives, and a count rendered as text must still sort numerically.
+
+Editor versions are monotonic within an instance. A confirmed save must reject an older polling snapshot before updating either the draft or the displayed remote revision; protecting only the draft still creates false conflicts. Real-browser checks now include channel selection/sending, per-channel drafts, focus restoration, both themes, pending saves and real search matches, rather than only screenshots of static pages. External template paths must include their repository prefix; otherwise the documentation integrity test correctly treats them as missing local source files.
+
 ## 2026-11-02 — restoring CLI-first supervision
 
 The final review caught an incorrect Pi boundary assumption: `agent_before_settle.context.canContinue` describes the context before an extension appends its entries. A final assistant message makes it false; the reminder's custom message is what makes continuation possible. Both handlers now let Pi validate the updated context, and tests use the real prose-only terminal state (`canContinue: false`). Poll-safe editors also need request-safe drafts: prompt and configuration editors are disabled while their save is pending so a late response cannot overwrite newer typing.

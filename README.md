@@ -108,6 +108,8 @@ A real live probe is maintained at `scripts/probe-system.ts` and invoked with `p
 - [007 Architecture](docs/007-architecture.md)
 - [008 Cookbook](docs/008-cookbook.md)
 - [009 Bootstrap](docs/009-bootstrap.md)
+- [010 CLI-first supervision](docs/010-cli-first-superagent.md)
+- [011 Basalt dashboard](docs/011-basalt-dashboard.md)
 
 `pnpm check` runs typechecking, the build, and the test suites. When other agents are changing the repository, `pnpm exec vitest run tests/docs.spec.ts` is the bounded documentation-link check.
 
