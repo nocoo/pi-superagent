@@ -68,8 +68,10 @@ correction and would cost the person the wait.
 
 ### Reporting
 
-A worker states what became of its Ticket through one structured tool, `report`, not through prose. The conversation
-changes nothing about a Ticket; only the tool call does. `src/agents/report-tool.ts` builds it per Ticket.
+A worker states what became of its Ticket through `report`, not through prose. The `ask` tool is the direct way to
+record a blocked report with a question and deliver it to the requester. The conversation alone changes no Ticket state.
+`src/agents/report-tool.ts` builds these tools per Ticket. A bounded Pi `agent_before_settle` extension requests one
+structured handoff when a worker tries to finish with prose alone.
 
 | Report | Meaning |
 | --- | --- |
@@ -154,9 +156,9 @@ difference in what the agent does, not a cosmetic gap.
 | Missing | Consequence |
 | --- | --- |
 | Background jobs | The original moved a foreground shell command to a background job after five seconds, so a long command did not hold back the worker's next step. Here a command blocks the turn until it finishes. Steering still works, because the correction lands at the next model request, but the agent cannot act while a command runs. |
-| Handoff of background work | The original let shell jobs outlive a handoff without holding the slot, waking the worker with their result later — which is what let a worker offer a running server for review. There are no jobs to hand off here. |
+| Handoff of background work | The original could retain a server for human review without holding a worker slot, collecting its end as context for a later turn. This host has no equivalent job supervisor. |
 | Provider-specific model retry classification | The effect queue retries failed operations with a common backoff. Pi session turns are not transparently resumed across provider 408/429/5xx errors; the worker or coordinator records the failure and the host recovers or reports it. |
-| Subagents | The original let a worker spawn subagents under a narrower preset. Pi SDK 1.4 may support session primitives, but this project does not expose or supervise subagents; a worker works alone. |
+| Subagents | No subagent tool is enabled by this application's defaults. Workers can load Pi extensions, including its maintained subagent example; that extension's lifecycle applies. This host adds no cross-restart child supervision. |
 
 Speculative execution — starting work before it is known to be wanted — was never implemented in the original either
 and is not implemented here. It belongs to [002](002-authorization.md)'s accept modes, not to the Executor.

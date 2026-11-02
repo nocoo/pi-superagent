@@ -68,7 +68,7 @@ The web command is only a loopback CLI bridge for the React management panel. Th
 
 The implementation uses Pi SDK 1.4.0 and persistent session files. Session setup loads Pi resources dynamically from the working directory and Pi agent directory, including MCP, skills, extensions, codemode, and tool search where Pi discovers them. Prompt text is supplied dynamically from instance-owned prompt revisions.
 
-Pi 1.4's SDK capabilities do not make durable jobs or subagents built into this project. This repository does not implement a background-job supervisor or subagent framework.
+Pi 1.4's SDK capabilities do not make durable jobs or subagents built into this project. This repository does not implement a background-job supervisor or subagent framework. Ordinary delegation can be enabled through Pi's maintained [subagent extension example](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/examples/extensions/subagent), using its agent definitions and resource configuration; it is not enabled by this application's defaults and does not provide durable child recovery.
 
 ## Steering and work
 

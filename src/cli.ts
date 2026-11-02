@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * The command line, which is this agent's primary surface. Everything a supervisor needs is answered here; see
  * docs/005-cli.md for the design. Conventions: data on stdout, everything else on stderr, `--json` for scripts, exit 2
@@ -45,7 +46,7 @@ let invoked = 'pi-superagent'
 const program = new Command()
 program
   .name('pi-superagent')
-  .description('A proactive agent for one repository. Run `pi-superagent <command>` to inspect it.')
+  .description('A CLI-first agent for messages and general tasks. Run `pi-superagent <command>` to inspect it.')
   .version(version(), '-V, --version', 'print the version')
   .option('--state-dir <dir>', 'instance directory (default: $PI_SUPERAGENT_STATE_DIR or ~/.pi-superagent/state)')
   .option('--json', 'print one JSON object instead of prose')

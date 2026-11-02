@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Store } from '../src/store/store.ts'
@@ -33,6 +33,10 @@ const json = (result: Result): { command: string; result?: unknown; error?: { co
   JSON.parse(result.out || result.err) as never
 
 describe('invocation', () => {
+  it('builds a directly executable Node CLI', () => {
+    expect(readFileSync(cli, 'utf8').startsWith('#!/usr/bin/env node\n')).toBe(true)
+  })
+
   it('answers help, version and no arguments with success', () => {
     for (const args of [[], ['--help'], ['-V']]) {
       const result = run(args)
