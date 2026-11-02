@@ -6,7 +6,7 @@ import { InputArea } from '@nocoo/basalt/components/input-area'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import { arrays, formatValue, resultRecord, useCli, useMutation, type JsonRecord } from '../models'
-import { configSummary } from '../presentation'
+import { configSummary, isCurrentRevision } from '../presentation'
 import { ConfirmAction, EmptyState, ErrorState, JsonPreview, LoadingState, KeyValue, SectionCard, dataError } from '../views'
 
 export function ConfigPage() {
@@ -21,8 +21,9 @@ export function ConfigPage() {
   useEffect(() => {
     if (!state.data) return
     const revision = typeof state.data.revision === 'number' ? state.data.revision : 0
+    if (!isCurrentRevision(revision, baseRevision)) return
     setRemoteRevision(revision)
-    if (!dirty && (baseRevision === undefined || revision >= baseRevision)) {
+    if (!dirty) {
       setBaseRevision(revision)
       setJson(JSON.stringify(state.data.settings ?? {}, null, 2))
     }

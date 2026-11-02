@@ -5,6 +5,7 @@ import {
   configSummary,
   formatTime,
   identityLabel,
+  isCurrentRevision,
   messageText,
   searchKind,
   stageLabel,
@@ -18,6 +19,13 @@ import {
 } from '../web/src/presentation'
 
 describe('presentation helpers', () => {
+  it('rejects a stale query snapshot after a confirmed save', () => {
+    expect(isCurrentRevision(1, undefined)).toBe(true)
+    expect(isCurrentRevision(1, 2)).toBe(false)
+    expect(isCurrentRevision(2, 2)).toBe(true)
+    expect(isCurrentRevision(3, 2)).toBe(true)
+  })
+
   it('maps real lifecycle states to readable Chinese labels', () => {
     expect(statusLabel('ready')).toBe('就绪')
     expect(statusLabel('person')).toBe('等待人工')

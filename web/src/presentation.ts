@@ -1,5 +1,9 @@
 import { arrays, formatValue, resultRecord, type JsonRecord } from './models'
 
+export function isCurrentRevision(incoming: number, confirmed: number | undefined): boolean {
+  return confirmed === undefined || incoming >= confirmed
+}
+
 export function formatTime(value: unknown): string {
   if (typeof value === 'number' && Number.isFinite(value)) {
     const date = new Date(value)

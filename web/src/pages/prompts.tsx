@@ -7,7 +7,7 @@ import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import { textLines } from '../diff'
 import { arrays, formatValue, useCli, useMutation } from '../models'
-import { formatTime } from '../presentation'
+import { formatTime, isCurrentRevision } from '../presentation'
 import { ConfirmAction, EmptyState, ErrorState, KeyValue, LoadingState, SectionCard, StatusBadge, TextDiff, dataError } from '../views'
 
 interface PromptSnapshot {
@@ -29,9 +29,9 @@ export function PromptsPage() {
   const [preview, setPreview] = useState<{ prompts: { orchestrator: string; assess: string; work: string } }>()
 
   useEffect(() => {
-    if (!show.data) return
+    if (!show.data || !isCurrentRevision(show.data.revision, baseRevision)) return
     setRemoteRevision(show.data.revision)
-    if (!dirty && (baseRevision === undefined || show.data.revision >= baseRevision)) {
+    if (!dirty) {
       setBaseRevision(show.data.revision)
       setBaseConfig(show.data.config)
       setConfig(show.data.config)
