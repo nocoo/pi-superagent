@@ -50,3 +50,25 @@ Each increment is verified and committed atomically on `main`. No push, release,
 - Panel domain: `https://superagent.dev.hexly.ai`, loopback upstream port 7062; isolated test ports 17062/27062.
 - Port 7062 was absent from both active/versioned Caddy configurations and successfully bind-checked. The local memory service at port 14242 was unavailable during reservation lookup; recording the reservation there remains pending.
 - Use existing wildcard TLS files. No certificate regeneration or Keychain operation is required.
+
+## Verified implementation — 2026-11-02
+
+- Stable Pi SDK 1.4.0 supplies sessions, tools, resources, retries and extension lifecycle hooks. The experimental durable harness was not imported. Model operations and arbitrary external effects are not promised exactly-once execution.
+- `pnpm check`: 17 suites, 259 tests passed, including typechecking and the CLI/panel build. No coverage or whole-6DQ certification is implied.
+- `node scripts/probe-system.ts`: all eight real-model checks passed on implementation commit `72c6b90`. Evidence is retained locally at `.local/live-mvywe01v/results.json`: explicit non-coding work without rules, structured questions and answers, generic Inbox delivery/idempotence, live prompts and session resume, mid-turn correction, operator stop, observe-mode assessment, and restart without duplicate tasks.
+- `node scripts/probe-web.ts`: real Chrome through the trusted Caddy HTTPS domain verified navigation, real task records, search, prompt preview/history, dirty drafts, stale-revision rejection, editors disabled during delayed saves, themes and narrow-screen navigation. Evidence is under `.local/browser/`; expected 400/409 negative-test responses are recorded separately from JavaScript failures. There were no page errors or failed network requests.
+- A real browser answer completed the demonstration refund task and produced `reply.txt`; task and audit records remain queryable through the CLI. Dismissing an unavailable decision removes the operational warning, not its history.
+- Three independent review rounds were completed. The last two findings were fixed with targeted regressions: Pi checks continuation after reminder entries are appended, and pending saves cannot overwrite new editor input.
+- Background server handoff and durable child-agent supervision remain outside the stable SDK integration. Worker Pi extensions may supply ordinary delegation; this project does not build a replacement supervisor.
+
+The local demonstration is started in the Herdr `dev server` tab, with separate foreground runtime and web panes:
+
+```sh
+PI_CODING_AGENT_DIR="$PWD/.local/demo/pi" node lib/cli.js --state-dir "$PWD/.local/demo/state" run
+node lib/cli.js --state-dir "$PWD/.local/demo/state" web --port 7062
+node lib/cli.js --state-dir "$PWD/.local/demo/state" status
+```
+
+The dedicated Pi directory keeps service configuration separate from interactive agent settings. It uses the owner's
+local `group/coding` route. All demonstration tasks are local fixtures; no real GitHub issue/PR or Feishu operation was
+performed. No package publication, Git push, or application release was requested or performed.
