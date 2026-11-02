@@ -28,6 +28,20 @@ describe('the store', () => {
     reopened.close()
   })
 
+  it('opens a real read-only connection while the owner holds a write transaction', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'store-reader-'))
+    dirs.push(directory)
+    const path = join(directory, 'state.sqlite')
+    const writer = new Store(path)
+    let reader: Store | undefined
+    try {
+      writer.db.exec('BEGIN IMMEDIATE')
+      reader = new Store(path, undefined, { readOnly: true })
+      expect(reader.settings().eval.mode).toBe('observe')
+      expect(() => reader!.set('should-not-write', true)).toThrow(/readonly/i)
+    } finally { reader?.close(); writer.db.exec('ROLLBACK'); writer.close() }
+  })
+
   it('returns default settings before anything is saved', () => {
     const open = store()
     const settings = open.settings()

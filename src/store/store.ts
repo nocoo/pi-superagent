@@ -57,11 +57,16 @@ export class Store implements Repositories {
    * @param report - Receives errors thrown by `afterCommit` callbacks without failing the committed transaction.
    * @throws When the database schema is newer than `SCHEMA_VERSION`; the SQLite handle is closed so a later attempt can open it.
    */
-  constructor(path: string, private readonly report: (error: unknown) => void = () => {}) {
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-    this.db = new DatabaseSync(path)
+  constructor(path: string, private readonly report: (error: unknown) => void = () => {}, options: { readOnly?: boolean } = {}) {
+    if (!options.readOnly) mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    this.db = new DatabaseSync(path, { readOnly: options.readOnly ?? false, timeout: 5000 })
     this.read = storeReads(this.db)
     try {
+      if (options.readOnly) {
+        const version = this.get(KV.store.schema)
+        if (version !== SCHEMA_VERSION) throw new Error(`Unsupported orchestrator database version ${version}`)
+        return
+      }
       chmodSync(path, 0o600)
       this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
       const version = this.get(KV.store.schema)

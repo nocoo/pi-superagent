@@ -2,6 +2,10 @@
 
 ## 2026-11-02 — restoring CLI-first supervision
 
+A real startup race exposed that a CLI "read" opened the normal Store constructor, reran schema setup, and took a write transaction. Concurrent status polling could make the owner fail with `database is locked`. Read commands now use SQLite's actual read-only connection mode and never initialize the schema; a regression test opens one while the owner holds `BEGIN IMMEDIATE`. A native bounded busy timeout covers short writer transitions rather than hiding the problem behind CLI retries.
+
+The live model also repeatedly corrupted long event IDs while correcting a tool call. Agent tools now share the CLI's unique-prefix resolver and display eight-character IDs. An invalid long ID is still rejected; it is never fuzzily matched to a nearby request.
+
 The first integration passed its tests but review found gaps the tests did not model: polling overwrote unsaved prompt drafts, configuration drafts borrowed a newer revision and bypassed conflict detection, and the panel read a different search shape than the CLI returned. Tests of a successful bridge call do not prove an interactive editing workflow. Keep draft data and its base revision together, and verify polling, conflicting edits, search, and ended-task filters in the browser.
 
 The inherited policy hash omitted receiver configuration. Disabling a Source therefore left an old evaluation eligible to accept work. The human gate also relied on intake having checked the receiving scope. Policy versions now conservatively include Source configuration, and the gate checks scope again when events are replayed. A disabled receiver must not gain authority through a different entry point.

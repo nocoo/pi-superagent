@@ -18,7 +18,7 @@ export function openForRead(cli: Cli): Store {
   if (!existsSync(file)) {
     throw new CliError('no_instance', `no instance at ${cli.stateDir}`, 'start one with: pi-superagent run')
   }
-  return new Store(file)
+  return new Store(file, undefined, { readOnly: true })
 }
 
 /** Opens the instance, creating the directory and database if needed; used only by commands that write. */
