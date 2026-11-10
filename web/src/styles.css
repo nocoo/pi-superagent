@@ -31,8 +31,6 @@ body {
   min-width: 0;
 }
 
-.sa-nav-group { display: flex; flex-direction: column; gap: var(--basalt-space-nav-gap); }
-
 @media (min-width: 768px) {
   .sa-island-wrap { padding-inline: var(--basalt-space-layout-sm); padding-bottom: var(--basalt-space-layout-sm); }
 }
