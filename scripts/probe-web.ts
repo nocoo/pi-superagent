@@ -99,13 +99,13 @@ async function apiArgs(page: Page, args: string[], input?: string): Promise<{ st
 
 async function verifyFrame(page: Page): Promise<void> {
   const sidebar = page.getByTestId('desktop-sidebar')
-  const mark = sidebar.locator('.sa-brand-slot svg')
+  const mark = sidebar.getByTestId('brand-mark')
   await expect(sidebar).toBeVisible()
   const before = await mark.boundingBox()
   assert.ok(before)
   await page.getByRole('button', { name: '收起导航', exact: true }).click()
   await expect.poll(() => sidebar.evaluate(element => Math.round(element.getBoundingClientRect().width))).toBe(68)
-  const collapsed = await sidebar.locator('.sa-brand-mark svg').boundingBox()
+  const collapsed = await mark.boundingBox()
   assert.ok(collapsed)
   assert.ok(Math.abs((before.x + before.width / 2) - (collapsed.x + collapsed.width / 2)) <= 1, 'Brand axis must stay stable')
   await sidebar.getByRole('button', { name: '任务', exact: true }).hover()
