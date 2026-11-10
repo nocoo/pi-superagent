@@ -31,27 +31,6 @@ body {
   min-width: 0;
 }
 
-.sa-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--basalt-space-sm);
-  width: 100%;
-  min-width: 0;
-}
-
-.sa-brand-slot {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-shrink: 0;
-  width: calc(var(--basalt-size-rail) - 2 * var(--basalt-space-nav-inset));
-}
-
-.sa-brand-mark { display: flex; align-items: center; justify-content: center; }
-.sa-brand-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.sa-version { font-size: var(--basalt-text-sm); color: hsl(var(--basalt-muted-foreground)); white-space: nowrap; }
-.sa-sidebar-search { padding-inline: var(--basalt-space-nav-inset); }
-.sa-rail-control { display: flex; justify-content: center; }
 .sa-nav-group { display: flex; flex-direction: column; gap: var(--basalt-space-nav-gap); }
 
 .sa-mobile-sheet {
