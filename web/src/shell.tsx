@@ -24,8 +24,9 @@ function AppLink({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & {
   return <a {...props} href={appHref(href)} />
 }
 
-function Hint({ label, children }: { label: string; children: ReactNode }) {
-  return <Tooltip><TooltipTrigger asChild>{children}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>
+function Hint({ label, children, side = 'right' }: { label: string; children: ReactNode; side?: 'right' | 'bottom' }) {
+  return <Tooltip delayDuration={0}><TooltipTrigger asChild>{children}</TooltipTrigger>
+    <TooltipContent side={side} sideOffset={8}>{label}</TooltipContent></Tooltip>
 }
 
 function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
@@ -137,7 +138,7 @@ function Workspace() {
           event.currentTarget.focus(); setMobileOpen(true)
         }}><Menu aria-hidden="true" /></Button> : undefined}
         actions={<>
-          <Hint label="GitHub 仓库"><LinkButton href="https://github.com/nocoo/pi-superagent" target="_blank" rel="noopener noreferrer"
+          <Hint label="GitHub 仓库" side="bottom"><LinkButton href="https://github.com/nocoo/pi-superagent" target="_blank" rel="noopener noreferrer"
             variant="ghost" size="icon" aria-label="GitHub 仓库"><Github aria-hidden="true" /></LinkButton></Hint>
           <ThemeToggle aria-label="切换主题" />
         </>} />
