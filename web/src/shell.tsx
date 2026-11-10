@@ -50,7 +50,7 @@ function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
         </div>}
     </SidebarHeader>
     {collapsed && !drawer && <Hint label="展开导航">
-      <Button className="mb-basalt-space-sm self-center" size="icon" variant="ghost" aria-label="展开导航" onClick={onToggle}>
+      <Button size="icon" variant="ghost" aria-label="展开导航" onClick={onToggle}>
         <PanelLeftOpen aria-hidden="true" />
       </Button>
     </Hint>}
