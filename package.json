@@ -1,6 +1,6 @@
 {
   "name": "pi-superagent",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "license": "MIT",
   "description": "A CLI-first general-purpose multi-task agent with persistent Pi coordination and a local management panel.",
