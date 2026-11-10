@@ -131,6 +131,7 @@ function Workspace() {
       </SheetContent>
     </Sheet>}
     <AppMain>
+      {/* 面包屑层级由 routeInfo 注入，由 basalt AppHeader 内置 Breadcrumbs 渲染 */}
       <AppHeader title={info.title} breadcrumbs={info.breadcrumbs} density="compact"
         leading={mobile ? <Button ref={menu} size="icon" variant="ghost" aria-label="打开导航" onClick={event => {
           event.currentTarget.focus(); setMobileOpen(true)
