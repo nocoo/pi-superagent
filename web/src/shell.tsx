@@ -79,7 +79,7 @@ function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
     </SidebarNav>
     <SidebarFooter>
       {collapsed ? <Hint label="本地工作区 · 实例配置">
-        <Button size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Monitor aria-hidden="true" /></Button>
+        <Button className="self-center" size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Monitor aria-hidden="true" /></Button>
       </Hint> : <SidebarUser name="本地工作区" email="CLI 驱动 · 仅限本机"
         avatar={<AvatarInitials name="本地工作区" initials="L" size="sm" />}
         action={<Button size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />}
@@ -122,12 +122,12 @@ function Workspace() {
     <AppSkipLink onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>跳到内容</AppSkipLink>
     {!mobile && <AppSidebar route={route} navigate={go} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} />}
     {mobile && <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-      <SheetContent side="left" className="sa-mobile-sheet" onCloseAutoFocus={event => {
+      <SheetContent side="left" className="w-[260px] max-w-[260px] border-0 bg-basalt-background p-0" onCloseAutoFocus={event => {
         event.preventDefault()
         if (menu.current?.isConnected) menu.current.focus()
         else document.getElementById('main-content')?.focus()
       }}>
-        <SheetTitle className="sa-visually-hidden">Superagent 导航</SheetTitle>
+        <SheetTitle className="sr-only">Superagent 导航</SheetTitle>
         <AppSidebar route={route} navigate={go} collapsed={false} drawer onToggle={() => setMobileOpen(false)} />
       </SheetContent>
     </Sheet>}
