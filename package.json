@@ -1,6 +1,6 @@
 {
   "name": "pi-superagent",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "license": "MIT",
   "description": "A CLI-first general-purpose multi-task agent with persistent Pi coordination and a local management panel.",
@@ -29,10 +29,10 @@
     "test:live": "pnpm build && node scripts/probe-system.ts"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@earendil-works/pi-coding-agent": "1.5.0",
     "@nocoo/basalt": "3.2.1",
-    "commander": "^15.0.0",
-    "lucide-react": "^1.66.0",
+    "commander": "^15.1.0",
+    "lucide-react": "^1.70.0",
     "proper-lockfile": "4.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -40,7 +40,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@types/node": "22.20.0",
     "@types/proper-lockfile": "4.1.4",
     "@types/react": "^19.3.0",
