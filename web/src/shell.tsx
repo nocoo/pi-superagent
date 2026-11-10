@@ -61,20 +61,22 @@ function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
       {collapsed && <Hint label="搜索记录 · ⌘K"><SidebarIconItem aria-label="搜索记录" active={route === '/search'} onClick={search}>
         <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
       </SidebarIconItem></Hint>}
-      {navigationGroups.map(group => <div key={group} className="sa-nav-group">
+      {navigationGroups.map(group => <div key={group}>
         {!collapsed && <SidebarPartition>{group}</SidebarPartition>}
-        {navigation.filter(item => item.group === group).map(item => {
-          const Icon = icons[item.icon]
-          return collapsed ? <Hint key={item.path} label={item.label}>
-            <SidebarIconItem active={activeRoute(route, item.path)} aria-label={item.label}
-              aria-current={activeRoute(route, item.path) ? 'page' : undefined} onClick={() => navigate(item.path)}>
+        <div className="flex flex-col gap-basalt-nav-gap">
+          {navigation.filter(item => item.group === group).map(item => {
+            const Icon = icons[item.icon]
+            const active = activeRoute(route, item.path)
+            return collapsed ? <Hint key={item.path} label={item.label}>
+              <SidebarIconItem active={active} aria-label={item.label} onClick={() => navigate(item.path)}>
+                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+              </SidebarIconItem>
+            </Hint> : <SidebarItem key={item.path} active={active} onClick={() => navigate(item.path)}>
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-            </SidebarIconItem>
-          </Hint> : <SidebarItem key={item.path} active={activeRoute(route, item.path)}
-            aria-current={activeRoute(route, item.path) ? 'page' : undefined} onClick={() => navigate(item.path)}>
-            <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" /><span>{item.label}</span>
-          </SidebarItem>
-        })}
+              <span className="flex-1 truncate text-left">{item.label}</span>
+            </SidebarItem>
+          })}
+        </div>
       </div>)}
     </SidebarNav>
     <SidebarFooter>
