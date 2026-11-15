@@ -115,13 +115,16 @@ async function verifyFrame(page: Page): Promise<void> {
   await expect.poll(() => sidebar.evaluate(element => Math.round(element.getBoundingClientRect().width))).toBe(260)
   await page.keyboard.press('Meta+k')
   await expect(page.getByRole('textbox', { name: '搜索', exact: true })).toBeFocused()
+  await page.getByRole('textbox', { name: '搜索', exact: true }).blur()
+  await page.keyboard.press('Meta+k')
+  await expect(page.getByRole('textbox', { name: '搜索', exact: true })).toBeFocused()
   const hash = await page.evaluate(() => location.hash)
   await page.getByRole('link', { name: '跳到内容', exact: true }).focus()
   await page.keyboard.press('Enter')
   await expect(page.locator('#main-content')).toBeFocused()
   assert.equal(await page.evaluate(() => location.hash), hash, 'Skip link must not change the hash route')
   await go(page, '/')
-  report.observations.frame = { collapsedWidth: 68, expandedWidth: 260, stableBrandAxis: true, searchShortcut: true, skipLink: true }
+  report.observations.frame = { collapsedWidth: 68, expandedWidth: 260, stableBrandAxis: true, searchShortcut: true, searchShortcutRefocus: true, skipLink: true }
 }
 
 async function verifyPendingEditor(page: Page, editor: Locator, group: string, command: string, submit: () => Promise<void>): Promise<void> {
@@ -199,13 +202,27 @@ async function main(): Promise<void> {
     await go(page, '/tasks')
     await page.waitForTimeout(1200)
     await screenshot(page, '02-tasks')
-    await page.getByRole('combobox', { name: '任务阶段', exact: true }).click()
-    await page.getByRole('option', { name: '已结束', exact: true }).click()
+    const stageFilter = page.getByRole('radiogroup', { name: '任务阶段', exact: true })
+    await expect(stageFilter).toBeVisible()
+    const endedStageRequest = page.waitForRequest(request => {
+      if (!request.url().endsWith('/api/cli') || request.method() !== 'POST') return false
+      const body = request.postDataJSON() as { args?: string[] }
+      return body.args?.[0] === 'ticket' && body.args.includes('--stage') && body.args.includes('ended')
+    }, { timeout: 15_000 })
+    await page.getByRole('radio', { name: '已结束', exact: true }).click()
+    const endedStageArgs = (await endedStageRequest).postDataJSON() as { args?: string[] }
+    assert.ok(endedStageArgs.args?.includes('--stage'), 'Ended stage filter must request the ended stage')
     await page.waitForTimeout(900)
     await screenshot(page, '02b-tasks-ended')
-    report.observations.endedFilter = { activated: true }
-    await page.getByRole('combobox', { name: '任务阶段', exact: true }).click()
-    await page.getByRole('option', { name: '全部', exact: true }).click()
+    report.observations.endedFilter = { activated: true, requestArgs: endedStageArgs.args }
+    const allStageRequest = page.waitForRequest(request => {
+      if (!request.url().endsWith('/api/cli') || request.method() !== 'POST') return false
+      const body = request.postDataJSON() as { args?: string[] }
+      return body.args?.[0] === 'ticket' && !body.args.includes('--stage')
+    }, { timeout: 15_000 })
+    await page.getByRole('radio', { name: '全部', exact: true }).click()
+    const allStageArgs = (await allStageRequest).postDataJSON() as { args?: string[] }
+    assert.ok(!allStageArgs.args?.includes('--stage'), 'All stage filter must request every stage')
     await page.waitForTimeout(800)
     const detailButton = page.getByRole('button', { name: '查看', exact: true })
     assert.ok(await detailButton.count() > 0, 'At least one real task detail must exist')

@@ -1,5 +1,17 @@
 # Retrospective
 
+## 2026-11-15 — Basalt 3.3.6 upgrade and its review
+
+The 3.2.1 → 3.3.6 upgrade moved the panel to the Tailwind v4 contract and to the native `SidebarProvider`/`SidebarDrawer`/`SidebarBrand`/`SegmentControl` controls. Review then caught three defects that the type checker, the build and the unit tests all accepted.
+
+A control swap changes its accessibility contract. `SegmentControl` renders a radiogroup of radios where the previous select rendered a combobox of options, so `scripts/probe-web.ts` waited 30 seconds for a combobox that no longer existed and the filter was never exercised. A dependency upgrade that changes a control's role must update the browser probe in the same commit, and the probe must assert the request the control produces, not only that the control was clicked; the ended-stage request arguments are the real contract of that filter.
+
+Native components own their collapsed and expanded form. The rail search was hand-written twice — a filled row and a `Hint` plus `SidebarIconItem` icon row — while `SidebarSearch` already switches between the two under `SidebarProvider`, including its own collapsed tooltip and accessible name. Keep one instance and let the provider control it. The same rule applies to `SidebarUser`, which renders only its avatar on a collapsed rail.
+
+A hash change is not a focus change. The ⌘K handler navigated to `/search`, which did nothing when the panel already sat on that page, so the search input never regained focus. The fix resolves the input explicitly and retries while a lazily mounted page is still loading. The regression check belongs in two places: a DOM-free unit test for the resolution rules and a browser assertion that presses the shortcut twice, because only the browser shows that focus really moved.
+
+The browser probe can only be replayed as far as the local instance allows. The machine had no running coordinator and no model credentials, so the probe verified the rail, the shortcut focus, the skip link, the stage filter request and the rendered pages, and stopped at the first data-dependent assertion. The remaining chat, prompt and dirty-draft evidence from the 3.2.1 run belongs to that run and is labelled as such instead of being claimed for 3.3.6.
+
 ## 2026-11-02 — Basalt dashboard rewrite
 
 Importing Basalt controls did not make the old dashboard a Basalt application: it lacked the complete rail/header/island composition, used repeated JSON cards, and duplicated spacing ownership. The rewrite follows the installed 3.2.1 contract and the sibling repository's application templates, not an imagined API. Root exports, avatar sizing and the removal of Lucide brand icons still required checking the actual declarations.
