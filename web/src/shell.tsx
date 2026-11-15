@@ -5,11 +5,12 @@ import { AvatarInitials } from '@nocoo/basalt/components/avatar'
 import { AppMain, AppSkipLink, AppShell } from '@nocoo/basalt/components/app-shell'
 import { AccentProvider } from '@nocoo/basalt/providers/accent'
 import { ContentIsland, Sidebar, SidebarBrand, SidebarDrawer, SidebarFooter, SidebarHeader, SidebarIconItem, SidebarItem, SidebarNav, SidebarPartition, SidebarProvider, SidebarSearch, SidebarToggle, SidebarUser } from '@nocoo/basalt/components/sidebar'
-import { Bot, LayoutDashboard, ListTodo, MessagesSquare, GitBranch, Inbox, MessageSquare, Network, Search, Settings, FileText } from 'lucide-react'
+import { Bot, LayoutDashboard, ListTodo, MessagesSquare, GitBranch, Inbox, MessageSquare, Network, Settings, FileText } from 'lucide-react'
 import pkg from '../../package.json'
 import { RouteView } from './App'
 import { useHashRoute } from './models'
 import { activeRoute, appHref, navigation, navigationGroups, routeInfo } from './navigation'
+import { focusSearchInputWhenReady, isSearchShortcut } from './search-focus'
 
 const icons = { dashboard: LayoutDashboard, tasks: ListTodo, threads: MessagesSquare, decisions: GitBranch,
   sources: Inbox, chat: MessageSquare, coordinator: Network, settings: Settings, prompts: FileText }
@@ -39,9 +40,7 @@ function AppSidebar({ route, navigate, collapsed, drawer = false, onDismissDrawe
       />
     </SidebarHeader>
     <SidebarNav aria-label="Superagent 管理导航">
-      {collapsed && !drawer
-        ? <Hint label="搜索记录 · ⌘K"><SidebarIconItem aria-label="搜索记录" active={route === '/search'} onClick={search}><Search aria-hidden="true" /></SidebarIconItem></Hint>
-        : <SidebarSearch onClick={search} aria-label="搜索记录" shortcut="⌘K">搜索记录</SidebarSearch>}
+      <SidebarSearch onClick={search} aria-label="搜索记录" shortcut="⌘K">搜索记录</SidebarSearch>
       {navigationGroups.map(group => <div key={group}>
         {!collapsed && <SidebarPartition>{group}</SidebarPartition>}
         <div className="flex flex-col gap-basalt-nav-gap">
@@ -58,7 +57,7 @@ function AppSidebar({ route, navigate, collapsed, drawer = false, onDismissDrawe
     <SidebarFooter>
       <SidebarUser name="本地工作区" email="CLI 驱动 · 仅限本机"
         avatar={<AvatarInitials name="本地工作区" initials="L" size="sm" />}
-        action={collapsed && !drawer ? undefined : <Button size="icon-sm" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />
+        action={<Button size="icon-sm" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />
     </SidebarFooter>
   </Sidebar>
 }
@@ -84,11 +83,14 @@ function Workspace() {
   }, [route, info.title])
   useEffect(() => {
     const search = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        navigate('/search')
-        setMobileOpen(false)
-      }
+      if (!isSearchShortcut(event)) return
+      event.preventDefault()
+      navigate('/search')
+      setMobileOpen(false)
+      focusSearchInputWhenReady(
+        { querySelector: selector => document.querySelector<HTMLInputElement>(selector) },
+        callback => requestAnimationFrame(callback),
+      )
     }
     window.addEventListener('keydown', search)
     return () => window.removeEventListener('keydown', search)
