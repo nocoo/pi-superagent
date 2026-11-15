@@ -1,17 +1,11 @@
 import { useEffect, useRef, useState, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { Button, LinkProvider, ThemeProvider, ThemeToggle, Toaster,
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@nocoo/basalt'
-import { AppHeader } from '@nocoo/basalt/components/app-header'
+import { Button, LinkProvider, ThemeProvider, ThemeToggle, Toaster, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@nocoo/basalt'
+import { AppHeader, AppHeaderMenuButton, ProjectLinks } from '@nocoo/basalt/components/app-header'
 import { AvatarInitials } from '@nocoo/basalt/components/avatar'
+import { AppMain, AppSkipLink, AppShell } from '@nocoo/basalt/components/app-shell'
 import { AccentProvider } from '@nocoo/basalt/providers/accent'
-import { Github } from './github-icon'
-import { AppMain, AppShell, AppSkipLink } from '@nocoo/basalt/components/app-shell'
-import { LinkButton } from '@nocoo/basalt/components/button'
-import { Sheet, SheetContent, SheetTitle } from '@nocoo/basalt/components/sheet'
-import { ContentIsland, Sidebar, SidebarFooter, SidebarHeader, SidebarIconItem, SidebarItem, SidebarNav,
-  SidebarPartition, SidebarSearch, SidebarUser } from '@nocoo/basalt/components/sidebar'
-import { Bot, FileText, GitBranch, Inbox, LayoutDashboard, ListTodo, Menu, MessageSquare,
-  MessagesSquare, Monitor, Network, PanelLeftClose, PanelLeftOpen, Search, Settings, X } from 'lucide-react'
+import { ContentIsland, Sidebar, SidebarBrand, SidebarDrawer, SidebarFooter, SidebarHeader, SidebarIconItem, SidebarItem, SidebarNav, SidebarPartition, SidebarProvider, SidebarSearch, SidebarToggle, SidebarUser } from '@nocoo/basalt/components/sidebar'
+import { Bot, LayoutDashboard, ListTodo, MessagesSquare, GitBranch, Inbox, MessageSquare, Network, Search, Settings, FileText } from 'lucide-react'
 import pkg from '../../package.json'
 import { RouteView } from './App'
 import { useHashRoute } from './models'
@@ -24,67 +18,47 @@ function AppLink({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & {
   return <a {...props} href={appHref(href)} />
 }
 
-function Hint({ label, children, side = 'right' }: { label: string; children: ReactNode; side?: 'right' | 'bottom' }) {
+function Hint({ label, children }: { label: string; children: ReactNode }) {
   return <Tooltip delayDuration={0}><TooltipTrigger asChild>{children}</TooltipTrigger>
-    <TooltipContent side={side} sideOffset={8}>{label}</TooltipContent></Tooltip>
+    <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent></Tooltip>
 }
 
-function AppSidebar({ route, navigate, collapsed, onToggle, drawer = false }: {
-  route: string; navigate: (path: string) => void; collapsed: boolean; onToggle: () => void; drawer?: boolean
+function AppSidebar({ route, navigate, collapsed, drawer = false, onDismissDrawer }: {
+  route: string; navigate: (path: string) => void; collapsed: boolean; drawer?: boolean; onDismissDrawer?: () => void
 }) {
   const search = () => navigate('/search')
-  return <Sidebar collapsed={collapsed} aria-label="工作区侧栏" data-testid={drawer ? 'mobile-sidebar' : 'desktop-sidebar'}>
+  return <Sidebar resizable={!drawer} aria-label="工作区侧栏" data-testid={drawer ? 'mobile-sidebar' : 'desktop-sidebar'}>
     <SidebarHeader>
-      {collapsed && !drawer ? <Bot className="h-5 w-5 shrink-0" strokeWidth={1.5} data-testid="brand-mark" aria-label="Superagent" />
-        : <div className="flex w-full min-w-0 items-center justify-between gap-basalt-space-sm">
-          <div className="flex min-w-0 items-center gap-basalt-space-lg">
-            <Bot className="h-5 w-5 shrink-0" strokeWidth={1.5} data-testid="brand-mark" aria-hidden="true" />
-            <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">Superagent</span>
-            <span className="shrink-0 rounded-md bg-basalt-secondary px-basalt-space-md py-basalt-space-xs text-basalt-xs font-medium leading-none text-basalt-muted-foreground">
-              v{pkg.version}
-            </span>
-          </div>
-          <Button size="icon" variant="ghost" onClick={onToggle} aria-label={drawer ? '关闭导航' : '收起导航'}>
-            {drawer ? <X aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
-          </Button>
-        </div>}
+      <SidebarBrand
+        logo={<Bot data-testid="brand-mark" aria-label="Superagent" strokeWidth={1.5} />}
+        name="Superagent"
+        version={`v${pkg.version}`}
+        action={drawer
+          ? <SidebarToggle mode="dismiss" dismissLabel="关闭导航" onDismiss={onDismissDrawer} />
+          : <SidebarToggle collapseLabel="收起导航" expandLabel="展开导航" />}
+      />
     </SidebarHeader>
-    {collapsed && !drawer && <Hint label="展开导航">
-      <Button size="icon" variant="ghost" aria-label="展开导航" onClick={onToggle}>
-        <PanelLeftOpen aria-hidden="true" />
-      </Button>
-    </Hint>}
-    {!collapsed && <div className="px-basalt-nav-inset">
-      <SidebarSearch onClick={search} aria-label="搜索记录" shortcut="⌘K">搜索记录</SidebarSearch>
-    </div>}
     <SidebarNav aria-label="Superagent 管理导航">
-      {collapsed && <Hint label="搜索记录 · ⌘K"><SidebarIconItem aria-label="搜索记录" active={route === '/search'} onClick={search}>
-        <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-      </SidebarIconItem></Hint>}
+      {collapsed && !drawer
+        ? <Hint label="搜索记录 · ⌘K"><SidebarIconItem aria-label="搜索记录" active={route === '/search'} onClick={search}><Search aria-hidden="true" /></SidebarIconItem></Hint>
+        : <SidebarSearch onClick={search} aria-label="搜索记录" shortcut="⌘K">搜索记录</SidebarSearch>}
       {navigationGroups.map(group => <div key={group}>
         {!collapsed && <SidebarPartition>{group}</SidebarPartition>}
         <div className="flex flex-col gap-basalt-nav-gap">
           {navigation.filter(item => item.group === group).map(item => {
             const Icon = icons[item.icon]
             const active = activeRoute(route, item.path)
-            return collapsed ? <Hint key={item.path} label={item.label}>
-              <SidebarIconItem active={active} aria-label={item.label} onClick={() => navigate(item.path)}>
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-              </SidebarIconItem>
-            </Hint> : <SidebarItem key={item.path} active={active} onClick={() => navigate(item.path)}>
-              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-              <span className="flex-1 truncate text-left">{item.label}</span>
-            </SidebarItem>
+            return collapsed && !drawer
+              ? <Hint key={item.path} label={item.label}><SidebarIconItem active={active} aria-label={item.label} onClick={() => navigate(item.path)}><Icon aria-hidden="true" /></SidebarIconItem></Hint>
+              : <SidebarItem key={item.path} active={active} onClick={() => navigate(item.path)}><Icon aria-hidden="true" /><span className="flex-1 truncate text-left">{item.label}</span></SidebarItem>
           })}
         </div>
       </div>)}
     </SidebarNav>
     <SidebarFooter>
-      {collapsed ? <Hint label="本地工作区 · 实例配置">
-        <Button className="self-center" size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Monitor aria-hidden="true" /></Button>
-      </Hint> : <SidebarUser name="本地工作区" email="CLI 驱动 · 仅限本机"
+      <SidebarUser name="本地工作区" email="CLI 驱动 · 仅限本机"
         avatar={<AvatarInitials name="本地工作区" initials="L" size="sm" />}
-        action={<Button size="icon" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />}
+        action={collapsed && !drawer ? undefined : <Button size="icon-sm" variant="ghost" aria-label="实例配置" onClick={() => navigate('/config')}><Settings aria-hidden="true" /></Button>} />
     </SidebarFooter>
   </Sidebar>
 }
@@ -114,39 +88,24 @@ function Workspace() {
         event.preventDefault()
         navigate('/search')
         setMobileOpen(false)
-        document.querySelector<HTMLInputElement>('input[aria-label="搜索"]')?.focus()
       }
     }
     window.addEventListener('keydown', search)
     return () => window.removeEventListener('keydown', search)
   }, [navigate])
-  return <AppShell layout="workspace" data-dashboard-shell>
+  return <AppShell layout="workspace" className="relative h-dvh" data-dashboard-shell>
     <AppSkipLink onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>跳到内容</AppSkipLink>
-    {!mobile && <AppSidebar route={route} navigate={go} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} />}
-    {mobile && <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-      <SheetContent side="left" className="w-[260px] max-w-[260px] border-0 bg-basalt-background p-0" onCloseAutoFocus={event => {
-        event.preventDefault()
-        if (menu.current?.isConnected) menu.current.focus()
-        else document.getElementById('main-content')?.focus()
-      }}>
-        <SheetTitle className="sr-only">Superagent 导航</SheetTitle>
-        <AppSidebar route={route} navigate={go} collapsed={false} drawer onToggle={() => setMobileOpen(false)} />
-      </SheetContent>
-    </Sheet>}
+    {!mobile && <SidebarProvider collapsed={collapsed} onCollapsedChange={setCollapsed}><AppSidebar route={route} navigate={go} collapsed={collapsed} /></SidebarProvider>}
+    {mobile && <SidebarDrawer open={mobileOpen} onOpenChange={setMobileOpen} returnFocusRef={menu} id="mobile-navigation" title="Superagent 导航">
+      <AppSidebar route={route} navigate={go} collapsed={false} drawer onDismissDrawer={() => setMobileOpen(false)} />
+    </SidebarDrawer>}
     <AppMain>
-      {/* 面包屑层级由 routeInfo 注入，由 basalt AppHeader 内置 Breadcrumbs 渲染 */}
       <AppHeader title={info.title} breadcrumbs={info.breadcrumbs} density="compact"
-        leading={mobile ? <Button ref={menu} size="icon" variant="ghost" aria-label="打开导航" onClick={event => {
-          event.currentTarget.focus(); setMobileOpen(true)
-        }}><Menu aria-hidden="true" /></Button> : undefined}
-        actions={<>
-          <Hint label="GitHub 仓库" side="bottom"><LinkButton href="https://github.com/nocoo/pi-superagent" target="_blank" rel="noopener noreferrer"
-            variant="ghost" size="icon" aria-label="GitHub 仓库"><Github aria-hidden="true" /></LinkButton></Hint>
-          <ThemeToggle aria-label="切换主题" />
-        </>} />
-      <div className="sa-island-wrap"><ContentIsland id="workspace-content">
-        <div className="sa-page-frame"><RouteView route={route} navigate={go} /></div>
-      </ContentIsland></div>
+        leading={mobile ? <AppHeaderMenuButton ref={menu} label="打开导航" onClick={() => setMobileOpen(true)} /> : undefined}
+        actions={<><ProjectLinks github="nocoo/pi-superagent" githubLabel="GitHub 仓库" /><ThemeToggle aria-label="切换主题" /></>} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-basalt-space-lg pb-basalt-space-lg md:px-basalt-layout-sm md:pb-basalt-layout-sm">
+        <ContentIsland id="workspace-content" className="relative min-w-0"><div className="flex min-w-0 flex-col gap-basalt-layout-lg"><RouteView route={route} navigate={go} /></div></ContentIsland>
+      </div>
     </AppMain>
   </AppShell>
 }

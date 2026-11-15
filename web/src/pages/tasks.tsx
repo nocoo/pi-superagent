@@ -8,7 +8,7 @@ import { Input } from '@nocoo/basalt/components/input'
 import { InputArea } from '@nocoo/basalt/components/input-area'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { ResourceList } from '@nocoo/basalt/components/resource-list'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@nocoo/basalt/components/select'
+import { SegmentControl } from '@nocoo/basalt/components/segment-control'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import type { RoutePageProps } from '../App'
 import { arrays, formatValue, resultRecord, useCli, useMutation, type JsonRecord } from '../models'
@@ -54,10 +54,9 @@ function TaskList({ navigate }: { navigate: (path: string) => void }) {
       title="任务"
       description={`${tickets.length} 个任务`}
       data={tickets.map(row => ({ name: formatValue(row.title ?? row.id), status: stageLabel(row.stage) }))}
-      toolbar={<Select value={stage} onValueChange={setStage}>
-        <SelectTrigger size="sm" aria-label="任务阶段"><SelectValue /></SelectTrigger>
-        <SelectContent>{stages.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
-      </Select>}
+      toolbar={<SegmentControl legend="任务阶段" allOption={{ value: 'all', label: '全部' }}
+        options={stages.filter(item => item.value !== 'all').map(item => ({ value: item.value, label: item.label }))}
+        value={stage} onValueChange={setStage} />}
     >
       {tickets.length ? <SectionCard title="任务列表" attached><DataTable aria-label="任务" edge="attached" data={tickets} columns={columns} getRowId={(row, index) => typeof row.id === 'string' ? row.id : String(index)} /></SectionCard> : <EmptyState />}
     </ResourceList>

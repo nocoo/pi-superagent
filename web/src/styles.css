@@ -1,36 +1,16 @@
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-}
+@source "../../node_modules/@nocoo/basalt/dist/**/*.{js,jsx,ts,tsx}";
+@source "./**/*.{ts,tsx}";
+@import "@nocoo/basalt/styles/tailwind";
+@import "tailwindcss";
 
-body {
-  background: hsl(var(--basalt-background));
-  color: hsl(var(--basalt-foreground));
-  font-family: var(--basalt-font-sans);
-  font-size: var(--basalt-text-base);
-  line-height: var(--basalt-leading-body);
-  -webkit-font-smoothing: antialiased;
-}
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 
-.sa-island-wrap {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-  padding-inline: var(--basalt-space-lg);
-  padding-bottom: var(--basalt-space-lg);
-}
-
-.sa-page-frame {
-  display: flex;
-  flex-direction: column;
-  gap: var(--basalt-space-layout-lg);
-  min-width: 0;
-}
-
-@media (min-width: 768px) {
-  .sa-island-wrap { padding-inline: var(--basalt-space-layout-sm); padding-bottom: var(--basalt-space-layout-sm); }
+  body {
+    @apply bg-basalt-background text-basalt-base text-basalt-foreground font-basalt-sans antialiased;
+  }
 }
