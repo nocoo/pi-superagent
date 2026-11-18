@@ -3,7 +3,7 @@ allowBuilds:
   protobufjs: false
 
 minimumReleaseAgeExclude:
-  - '@nocoo/basalt@3.3.6'
+  - '@nocoo/basalt@3.5.1'
 
 overrides:
   minimatch: ^11.0.1

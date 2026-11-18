@@ -6,7 +6,7 @@ A CLI-first general-purpose multi-task agent with persistent Pi coordination (`l
 
 - Install dependencies with `pnpm install --frozen-lockfile`.
 - Keep tests isolated in temporary directories (`tests/`); do not run live probes (`pnpm test:live`) or external API calls in CI.
-- `web/` uses `@nocoo/basalt` (`3.3.6`); follow `system1-design-basalt` Everyday UI rules when modifying UI components.
+- `web/` uses `@nocoo/basalt` (`^3.5.1`); follow `system1-design-basalt` Everyday UI rules when modifying UI components.
 - Do not publish or alter branch protection without explicit authorization.
 
 ## Commands

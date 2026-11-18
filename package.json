@@ -1,6 +1,6 @@
 {
   "name": "pi-superagent",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "license": "MIT",
   "description": "A CLI-first general-purpose multi-task agent with persistent Pi coordination and a local management panel.",
@@ -30,9 +30,8 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.5.0",
-    "@nocoo/basalt": "3.3.6",
+    "@nocoo/basalt": "^3.5.1",
     "commander": "^15.1.0",
-    "lucide-react": "^1.70.0",
     "proper-lockfile": "4.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
