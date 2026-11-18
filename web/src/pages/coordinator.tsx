@@ -1,5 +1,5 @@
-import { ChatMessage } from '@nocoo/basalt/components/chat-message'
-import { ToolChips } from '@nocoo/basalt/components/tool-chips'
+import { ChatMessage } from '../components/chat-message'
+import { ToolChips } from '../components/tool-chips'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import { arrays, formatValue, resultRecord, useCli, type JsonRecord } from '../models'
