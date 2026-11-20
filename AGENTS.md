@@ -1,41 +1,47 @@
 # Pi Superagent
 
-A CLI-first general-purpose multi-task agent with persistent Pi coordination (`lib/`) and a local management panel (`web/`). Human overview: [README.md](README.md). Historical mistakes: [Retrospective.md](Retrospective.md).
-
-## Invariants
-
-- Install dependencies with `pnpm install --frozen-lockfile`.
-- Keep tests isolated in temporary directories (`tests/`); do not run live probes (`pnpm test:live`) or external API calls in CI.
-- `web/` uses `@nocoo/basalt` (`^3.5.1`); follow `system1-design-basalt` Everyday UI rules when modifying UI components.
-- Do not publish or alter branch protection without explicit authorization.
+A CLI-first general-purpose multi-task agent with persistent Pi coordination (`lib/`) and a local Basalt management panel (`web/`).
+Docs: [README.md](README.md) · [Architecture](docs/007-architecture.md) · [Basalt Dashboard](docs/011-basalt-dashboard.md) · [Retrospective](Retrospective.md)
 
 ## Commands
 
-Run in the repository root with Node 24+ and pnpm 11.6.0.
+Run from repository root with Node >=22.19.0 (CI pins `26.12.1`) and `pnpm 11.6.0`.
 
 ```sh
-pnpm typecheck     # tsc --noEmit && tsc -p web/tsconfig.json
-pnpm build         # tsc -p tsconfig.build.json && vite build
-pnpm test          # pnpm build && vitest run
-pnpm check         # pnpm typecheck && pnpm test
+pnpm install --frozen-lockfile
+pnpm dev            # https://superagent.dev.hexly.ai -> 127.0.0.1:7062
+pnpm typecheck      # S1: tsc --noEmit && tsc -p web/tsconfig.json
+pnpm build          # B1: tsc -p tsconfig.build.json && vite build
+pnpm test           # L1: pnpm build && vitest run (tests/*.spec.ts)
+pnpm check          # pnpm typecheck && pnpm test
 git diff --check
 ```
 
-## Quality Slots
+## Invariants
 
-System1 quality definitions come from `system1-quality` (v1.3.0); CI runs in native mode via `.github/workflows/ci.yml` → `./.github/workflows/quality-slots.yml` with `nocoo/base-ci` composite actions pinned to `v2026.15` (`777bbe4f9bacab8a91d8c01974480a6ee23d28e0`). Branch protection (`main quality gate`) requires `quality / Z1: Gate`.
+- Install dependencies with `pnpm install --frozen-lockfile`; keep `pnpm-workspace.yaml` build restrictions and overrides intact.
+- Keep `src/core/` harness-free and `web/` strictly a loopback CLI/IPC bridge that never imports `Store`, `Engine`, or server runtime ([Architecture](docs/007-architecture.md)).
+- Read-only CLI commands must use SQLite read-only mode (`src/store/store-read.ts`) without schema setup so concurrent polling never locks a running instance.
+- Keep tests isolated in temporary directories (`tests/`); never run live probes (`pnpm test:live`, `scripts/probe-web.ts`) or external API calls in CI.
+- `web/` uses `@nocoo/basalt` (`^3.5.1`); follow `system1-design-basalt` Everyday UI rules and native controls ([Basalt Dashboard](docs/011-basalt-dashboard.md)).
+- Do not publish packages or alter branch protection without explicit authorization.
 
-| Slot | Stage | Command and Scope | Status |
-| --- | --- | --- | --- |
-| S1 Types | CI, local | `pnpm typecheck` (`tsc --noEmit && tsc -p web/tsconfig.json`) | enforced |
-| S2 Lint | — | no linter/formatter configured | na |
-| S3 Workflow | CI | `actionlint` + 40-char SHA pin verification across `.github/workflows/*.yml` | enforced |
-| G1 Secrets | CI | `gitleaks` redacted checkout scan | enforced |
-| G2 Dependencies | CI | `osv-scanner scan --lockfile=pnpm-lock.yaml` | enforced |
-| B1 Build | CI, local | `pnpm build` (`tsc -p tsconfig.build.json && vite build`) | enforced |
-| L1 Unit | CI, local | `pnpm test` (`vitest run` across `tests/*.spec.ts`) | enforced |
-| L2 Runtime | — | Node CLI and local HTTP panel; no platform runtime binding | na |
-| L3 Integration | — | CLI and web tests are currently run in L1 Vitest | na |
-| L4 E2E | — | no CI browser E2E suite configured | na |
-| P1 Package | — | private package; nothing published to npm | na |
-| Z1 Gate | CI | `z1-gate` validator in `quality-slots.yml` requiring all `impl` slots on matching `github.sha` and `na` slots skipped | enforced |
+## Quality & Local Gates
+
+Follows `system1-quality`; CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (via `.github/workflows/ci.yml`; `quality / Z1: Gate` required on `main` by `main quality gate`). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
+
+- **Static & packaging (`N/A`)**: `S2 Lint` (no linter/formatter configured), `L2 Runtime` (no platform runtime binding), and `P1 Package` (private package; nothing published to npm).
+- **Integration & E2E (`N/A`)**: `L3 Integration` (CLI and web tests run in `L1` Vitest) and `L4 E2E` (no CI browser suite; `scripts/probe-web.ts` is `manual`).
+- **Local hooks**: none configured (`manual`); run `pnpm check` and `git diff --check` locally before committing.
+
+## Resources & Isolation
+
+| Lane | Endpoint / State | Boundary |
+| --- | --- | --- |
+| Local panel | `https://superagent.dev.hexly.ai` → `127.0.0.1:7062` | Loopback CLI bridge to one process-owned state dir |
+| Tests | Per-run temp dirs under `tests/` | Isolated fixtures; no live API or external network calls |
+| Live probes | `pnpm test:live`, `scripts/probe-web.ts` | `manual` operator runs only; never invoke in CI |
+
+## Retrospective
+
+Record incident narratives in [Retrospective.md](Retrospective.md); promote recurring project constraints to `Invariants` above and enforceable safeguards to tests or hooks.
