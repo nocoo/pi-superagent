@@ -1,33 +1,43 @@
-# pi-superagent
+<h1 align="center">pi-superagent</h1>
 
-A local, policy-governed coding and task agent built on the Pi SDK.
+<p align="center">基于 Pi SDK 的本地策略治理型编码与任务 Agent。</p>
 
-`pi-superagent` keeps its domain model and authorization rules independent of the runtime. One process owns a state directory, receives events from Sources, evaluates work, runs persistent Pi sessions for Tickets, and reports results through Channels. It is not a DSH runtime and does not depend on `@deepseek-ai/*` packages.
+<p align="center"><a href="docs/README.en.md">English</a></p>
 
-## Runtime
+## 这是什么
 
-| Part | Implementation |
+`pi-superagent` 将领域模型与授权规则独立于运行时之外。单个进程持有一个状态目录，从 Source 接收事件、评估任务、为 Ticket 运行持久化 Pi 会话，并通过 Channel 上报结果。它不是 DSH 运行时，也不依赖 `@deepseek-ai/*` 包。
+
+| 模块 | 实现位置 |
 | --- | --- |
-| Domain model, Tickets, Evals, Mandates | `src/core/` |
-| Authorization and policy versioning | `src/policy.ts`, `src/admission.ts` |
-| Coordination and routing | persistent `PiCoordinator` in `src/agents/pi-coordinator.ts` |
-| Ticket execution | persistent Pi worker sessions in `src/agents/pi-executor.ts` |
-| Storage and durable effect queue | `src/store/`, `src/runtime/` |
-| Sources | GitHub, local IM, and generic Inbox in `src/sources/` |
-| CLI and management | `src/cli.ts`, `src/cli/commands/`, `src/runtime/management.ts` |
-| Web panel | CLI management bridge only, served by `pi-superagent web` |
+| 领域模型、Ticket、Eval、Mandate | `src/core/` |
+| 授权与策略版本控制 | `src/policy.ts`、`src/admission.ts` |
+| 协调与路由 | `src/agents/pi-coordinator.ts` 中的持久化 `PiCoordinator` |
+| Ticket 执行 | `src/agents/pi-executor.ts` 中的持久化 Pi worker 会话 |
+| 存储与持久化效应队列 | `src/store/`、`src/runtime/` |
+| Source 接入 | `src/sources/` 中的 GitHub、本地 IM 与通用 Inbox |
+| CLI 与管理 | `src/cli.ts`、`src/cli/commands/`、`src/runtime/management.ts` |
+| Web 面板 | 仅作为 CLI 管理桥接，由 `pi-superagent web` 提供服务 |
 
-The persistent coordinator is the main session. It can route explicit requests, assess inferred candidates, read domain resources, reply, attach or stop work, and coordinate Tickets. Workers are persistent sessions per Ticket. Typed tools call the Engine; model text is not a state transition.
+持久化协调器为主会话，可路由显式请求、评估推断候选、读取领域资源、回复、挂载或停止任务并协调 Ticket。Worker 为按 Ticket 隔离的持久化会话，通过类型化工具调用 Engine；模型输出文本本身不构成状态迁移。
 
-## Sources
+实现基于 Pi SDK（`@earendil-works/pi-coding-agent` 1.5.0）与持久化会话文件。会话初始化会从工作目录与 Pi agent 目录动态加载 MCP、skills、extensions、codemode 与 tool search 等 Pi 资源；提示词文本由实例持有的提示词修订版本动态提供。本项目未内置后台任务监管器或子 Agent 框架；常规委派可通过 Pi 维护的 [subagent extension example](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/examples/extensions/subagent) 启用，但应用默认不开启且不提供持久化子任务恢复。
 
-- **GitHub** is available as a Source. It is optional; a deployment can run without a repository or `gh` account.
-- **IM** is a local channel Source for scripts and interactive work.
-- **Inbox** is a generic external-event Source. It accepts standard JSON events for IMs, issue trackers, or other adapters, and stores adapter replies in JSONL for the external script to retrieve. It has no network loop.
+执行策略不限于编码任务：当部署环境授权时，Inbox 与 IM Source、协调器工具及通用 worker 提示词同样支持答疑、运维、Issue 处理等非编码任务。Worker 支持回合中引导（`session.steer()`）：纠偏指令会在当前助手回合及其工具调用完成后、下一次模型请求前进入；Ticket 保留自身状态，可在重启后恢复持久化 worker 会话。
 
-GitHub polling and writes use `gh`. Inbox and IM do not add a network service or a plugin platform.
+## 功能
 
-Enable Inbox and receive an event:
+- **多 Source 事件接入**：
+  - **GitHub**：可选 Source，使用 `gh` 轮询与写入；不配置仓库或 `gh` 账号亦可独立运行。
+  - **IM**：面向脚本与交互式工作的本地通道 Source。
+  - **Inbox**：通用外部事件 Source，接收 IM、Issue 追踪器或其他适配器的标准 JSON 事件，并将适配器回复写入 JSONL 供外部脚本读取；无网络轮询循环。Inbox 与 IM 均不引入网络服务或插件平台。
+- **持久化协调与状态隔离**：协调器与 Ticket worker 均以持久化会话运行，通过本地只读 SQLite 与效应队列保证状态一致。
+- **配置与提示词热更新**：配置与提示词变更可通过本地 IPC 通知运行中的实例。提示词修订以不可变版本存储，可热应用至下一次会话回合；`config set` 与提示词变更会向持久化协调器发送下一轮通知。
+- **本地 Basalt 管理面板**：`pi-superagent web` 为 React 管理面板提供回环 CLI 桥接，常规部署中由 `https://superagent.dev.hexly.ai` 转发至 `127.0.0.1:7062`。
+
+## 使用
+
+启用 Inbox 并接收事件：
 
 ```sh
 pi-superagent config set --inbox --inbox-allowed 'linear:alice@example.com' --inbox-observed linear
@@ -40,11 +50,9 @@ pi-superagent source receive --file event.json
 pi-superagent source replies --system linear --limit 20
 ```
 
-`source receive --file -` reads event JSON from stdin. `source replies` reads local adapter deliveries; it does not claim that a remote system has received them.
+`source receive --file -` 支持从标准输入读取事件 JSON；`source replies` 读取本地适配器投递记录，不代表远端系统已确认接收。
 
-## CLI and management
-
-CLI commands cover status, Sources, Threads, Triggers, Decisions, Tickets, configuration, the coordinator, prompts, Inbox, chat, and running the agent.
+常用 CLI 命令涵盖状态、Source、Thread、Trigger、Decision、Ticket、配置、协调器、提示词、Inbox、对话与运行 Agent：
 
 ```sh
 pi-superagent status
@@ -60,43 +68,50 @@ pi-superagent web --port 7062
 pi-superagent run --verbose
 ```
 
-Configuration and prompt changes can reach a running instance through local IPC. Prompt revisions are stored as immutable versions and can be hot-applied to the next agent session turn; `config set` and prompt changes send a next-run notification to the persistent coordinator.
+配置通过 `pi-superagent config set`、`config edit` 或 `config import` 修改；`run` 命令不提供仓库或允许登录名初始化参数。GitHub 通过 `config set --repository` 与 `--allowed` 配置，Inbox 通过 `--inbox`、`--inbox-allowed` 与 `--inbox-observed` 配置。
 
-The web command is only a loopback CLI bridge for the React management panel. The public origin is `https://superagent.dev.hexly.ai`, forwarding to `127.0.0.1:7062` in the normal deployment.
+## 开发
 
-## Pi resources
-
-The implementation uses Pi SDK 1.4.0 and persistent session files. Session setup loads Pi resources dynamically from the working directory and Pi agent directory, including MCP, skills, extensions, codemode, and tool search where Pi discovers them. Prompt text is supplied dynamically from instance-owned prompt revisions.
-
-Pi 1.4's SDK capabilities do not make durable jobs or subagents built into this project. This repository does not implement a background-job supervisor or subagent framework. Ordinary delegation can be enabled through Pi's maintained [subagent extension example](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/examples/extensions/subagent), using its agent definitions and resource configuration; it is not enabled by this application's defaults and does not provide durable child recovery.
-
-## Steering and work
-
-A worker can be steered mid-turn: `session.steer()` enters after the current assistant turn and its tool calls, before the next model request. A Ticket keeps its own state and can resume a persistent worker session across restarts.
-
-The execution policy is not limited to coding. The Inbox and IM Sources, coordinator tools, and generic worker prompts support support questions, operations, issue handling, and other non-coding tasks when a deployment authorizes them.
-
-## Run
+运行环境要求 Node >=22.19.0（CI 锁定 `26.12.1`）与 `pnpm 11.6.0`：
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
+pnpm typecheck
+pnpm dev
 pi-superagent run
 ```
 
-Configuration is changed with `pi-superagent config set`, `config edit`, or `config import`; `run` has no repository or allowed-login initialization flags. GitHub is configured through `config set --repository` and `--allowed`, while Inbox is configured through `--inbox`, `--inbox-allowed`, and `--inbox-observed`.
+`pnpm dev` 会执行构建并以本地 Web 管理面板模式启动（`127.0.0.1:7062`）。
 
-## Historical validation
+## 测试
 
-The following are historical experiments, not a current test count or a claim that every feature has been re-run:
+```sh
+pnpm test
+pnpm check
+pnpm exec vitest run tests/docs.spec.ts
+```
 
-- Mid-turn steering was measured with `scripts/probe-steer.ts`: a correction appeared between tool calls in the session file and stopped the remaining work.
-- An earlier bootstrap run against this repository produced a worktree, worker session, one-line fix, and pull request.
-- Ledger, GitHub, and steering probes are retained as evidence and reproducible scripts where applicable.
+- `pnpm check` 依次执行类型检查（`pnpm typecheck`）、构建（`pnpm build`）与 Vitest 测试套件（`pnpm test`）。
+- `pnpm exec vitest run tests/docs.spec.ts` 用于在仓库变动期间执行限定范围的文档链接检查。
+- 实机探针位于 `scripts/probe-system.ts`，仅在操作员主动执行 `pnpm test:live` 时运行，使用本地配置的 `127.0.0.1:3425` 上 `magpie/group/coding` 模型（不纳入 CI）。
 
-A real live probe is maintained at `scripts/probe-system.ts` and invoked with `pnpm test:live`. It uses the locally configured `magpie/group/coding` model on `127.0.0.1:3425` only when the operator chooses to run it.
+以下为历史验证实验记录，不代表当前测试计数或所有特性均已重跑：
 
-## Documents
+- 回合中引导曾通过 `scripts/probe-steer.ts` 实测：纠偏指令出现在会话文件的工具调用之间，并中止了剩余工作。
+- 早期针对本仓库的自举运行产出过独立 worktree、worker 会话、单行修复与 Pull Request。
+- 账本、GitHub 与引导探针作为可复现证据保留在仓库脚本中。
+
+## 技术栈
+
+| 领域 | 选型 |
+| --- | --- |
+| 运行时与 CLI | Node.js（>=22.19.0）、TypeScript、Commander、Zod、TypeBox、proper-lockfile |
+| Agent SDK | `@earendil-works/pi-coding-agent`（1.5.0） |
+| Web 面板 | React 19、Vite、Tailwind CSS、`@nocoo/basalt` |
+| 测试 | Vitest、Playwright |
+
+## 文档
 
 - [000 Philosophy](docs/000-philosophy.md)
 - [001 Domain model](docs/001-domain.md)
@@ -110,9 +125,9 @@ A real live probe is maintained at `scripts/probe-system.ts` and invoked with `p
 - [009 Bootstrap](docs/009-bootstrap.md)
 - [010 CLI-first supervision](docs/010-cli-first-superagent.md)
 - [011 Basalt dashboard](docs/011-basalt-dashboard.md)
+- [项目工程约束与检查口径](AGENTS.md)
+- [事故复盘](Retrospective.md)
 
-`pnpm check` runs typechecking, the build, and the test suites. When other agents are changing the repository, `pnpm exec vitest run tests/docs.spec.ts` is the bounded documentation-link check.
+## 许可证
 
-## License
-
-MIT. `src/core/`, `src/policy.ts`, `src/admission.ts`, `src/runtime/`, `src/store/`, and `src/sources/` carry their original governance and Source lineage.
+MIT（见 [LICENSE](LICENSE)）。`src/core/`、`src/policy.ts`、`src/admission.ts`、`src/runtime/`、`src/store/` 与 `src/sources/` 保留其原有治理与 Source 谱系。
