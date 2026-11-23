@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger, toast } from '@nocoo/basalt'
 import { Button } from '@nocoo/basalt/components/button'
-import { InputArea } from '@nocoo/basalt/components/input-area'
+import { Textarea } from '@nocoo/basalt/components/textarea'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import { textLines } from '../diff'
@@ -115,7 +115,7 @@ export function PromptsPage() {
         <SectionCard title="Prompt 草稿">
         <form className="sa-form" onSubmit={save}>
           {(['orchestrator', 'assess', 'work', 'shared'] as const).map(name => <label key={name} className="sa-field"><span>{name}</span>
-            <InputArea aria-label={name} disabled={mutation.busy} value={config[name]} onChange={event => editConfig({ ...config, [name]: event.target.value })} />
+            <Textarea aria-label={name} disabled={mutation.busy} value={config[name]} onChange={event => editConfig({ ...config, [name]: event.target.value })} />
           </label>)}
           <div className="sa-actions"><Button type="submit" loading={mutation.busy}>保存新版本</Button></div>
         </form>

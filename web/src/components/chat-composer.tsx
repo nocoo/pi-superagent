@@ -1,6 +1,6 @@
 import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from 'react'
 import { Button } from '@nocoo/basalt/components/button'
-import { InputArea } from '@nocoo/basalt/components/input-area'
+import { Textarea } from '@nocoo/basalt/components/textarea'
 import { ArrowUp } from '@nocoo/basalt/icons'
 
 export interface ChatComposerProps {
@@ -73,7 +73,7 @@ export function ChatComposer({
   return (
     <form className={`basalt-ui shrink-0 ${className ?? ''}`} onSubmit={onSubmit}>
       <div className="basalt-focus-group rounded-basalt-lg bg-basalt-control p-basalt-space-lg ring-1 ring-basalt-border">
-        <InputArea
+        <Textarea
           ref={ref}
           value={text}
           onChange={event => update(event.target.value)}

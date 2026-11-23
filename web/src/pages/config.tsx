@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger, toast } from '@nocoo/basalt'
 import { Button } from '@nocoo/basalt/components/button'
-import { InputArea } from '@nocoo/basalt/components/input-area'
+import { Textarea } from '@nocoo/basalt/components/textarea'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { SectionRule } from '@nocoo/basalt/components/section-rule'
 import { arrays, formatValue, resultRecord, useCli, useMutation, type JsonRecord } from '../models'
@@ -88,7 +88,7 @@ export function ConfigPage() {
         <SectionCard title="完整 settings 草稿">
         <form className="sa-form" onSubmit={event => { void importConfig(event) }}>
           <label className="sa-field"><span>完整 settings JSON</span>
-            <InputArea aria-label="完整 settings JSON" disabled={mutation.busy} value={json} onChange={event => {
+            <Textarea aria-label="完整 settings JSON" disabled={mutation.busy} value={json} onChange={event => {
               setJson(event.target.value)
               setDirty(true)
               if (baseRevision === undefined) setBaseRevision(typeof data.revision === 'number' ? data.revision : 0)

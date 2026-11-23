@@ -5,7 +5,7 @@ import { ChatComposer } from '../components/chat-composer'
 import { ChatMessage } from '../components/chat-message'
 import { DataTable, type DataTableColumn } from '@nocoo/basalt/components/data-table'
 import { Input } from '@nocoo/basalt/components/input'
-import { InputArea } from '@nocoo/basalt/components/input-area'
+import { Textarea } from '@nocoo/basalt/components/textarea'
 import { PageHeader } from '@nocoo/basalt/components/page-header'
 import { ResourceList } from '@nocoo/basalt/components/resource-list'
 import { SegmentControl } from '@nocoo/basalt/components/segment-control'
@@ -116,7 +116,7 @@ function TaskDetail({ id, navigate }: { id: string; navigate: (path: string) => 
       <Button variant="outline" size="sm" onClick={() => navigate('/tasks')}>返回列表</Button>
       {actions.retry === true && <ConfirmAction label="重试" title="重试任务" description="仅在 Ticket 可重试时创建新 Assignment。" busy={mutation.busy} onConfirm={() => run(['ticket', 'retry', id])} />}
       {actions.stop === true && <ConfirmAction label="停单" title="停止任务" description="停止后 Ticket 不再接收新工作。" destructive busy={mutation.busy} onConfirm={() => run(['ticket', 'stop', id, '--reason', reason])}>
-        <InputArea aria-label="停止原因" value={reason} onChange={event => setReason(event.target.value)} placeholder="可选原因" />
+        <Textarea aria-label="停止原因" value={reason} onChange={event => setReason(event.target.value)} placeholder="可选原因" />
       </ConfirmAction>}
     </>} />
 
@@ -153,14 +153,14 @@ function TaskDetail({ id, navigate }: { id: string; navigate: (path: string) => 
     <div className="sa-grid">
       {actions.note === true && <SectionCard title="添加说明">
         <form className="sa-form" onSubmit={(event: FormEvent) => { event.preventDefault(); void run(['ticket', 'note', id, '--text', noteText]) }}>
-          <InputArea aria-label="说明" value={noteText} onChange={event => setNoteText(event.target.value)} placeholder="说明内容" />
+          <Textarea aria-label="说明" value={noteText} onChange={event => setNoteText(event.target.value)} placeholder="说明内容" />
           <div className="sa-actions"><Button type="submit" size="sm" loading={mutation.busy}>{actionLabel('note')}</Button></div>
         </form>
       </SectionCard>}
       {actions.attach === true && <SectionCard title="关联 Trigger">
         <form className="sa-form" onSubmit={(event: FormEvent) => { event.preventDefault(); void run(['ticket', 'attach', id, '--trigger', trigger, '--note', attachNote]) }}>
           <Input aria-label="Trigger ID" value={trigger} onChange={event => setTrigger(event.target.value)} placeholder="Trigger ID" />
-          <InputArea aria-label="关联说明" value={attachNote} onChange={event => setAttachNote(event.target.value)} placeholder="关联说明" />
+          <Textarea aria-label="关联说明" value={attachNote} onChange={event => setAttachNote(event.target.value)} placeholder="关联说明" />
           <div className="sa-actions"><Button type="submit" variant="outline" size="sm" loading={mutation.busy}>{actionLabel('attach')}</Button></div>
         </form>
       </SectionCard>}

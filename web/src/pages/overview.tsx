@@ -42,7 +42,7 @@ export function OverviewPage() {
     { id: 'title', header: '任务', width: 260, wrap: true, sortValue: row => formatValue(row.title ?? row.id), accessor: row => typeof row.id === 'string'
       ? <Button variant="link" size="sm" onClick={() => { window.location.hash = `/tasks/${encodeURIComponent(row.id as string)}` }}>{formatValue(row.title ?? row.id)}</Button>
       : formatValue(row.title ?? row.id) },
-    { id: 'stage', header: '阶段', width: 100, sortValue: row => stageLabel(row.stage), accessor: row => <Badge variant="secondary">{stageLabel(row.stage)}</Badge> },
+    { id: 'stage', header: '阶段', width: 100, sortValue: row => stageLabel(row.stage), accessor: row => <Badge tone="neutral">{stageLabel(row.stage)}</Badge> },
     { id: 'updatedAt', header: '更新时间', width: 150, accessor: row => formatTime(row.updatedAt) },
     { id: 'outcome', header: '结果', width: 220, wrap: true, accessor: row => ticketOutcome(row) },
   ]
@@ -57,7 +57,7 @@ export function OverviewPage() {
     </StatGrid>
 
     <SectionRule title={`人工待办 (${needs.length})`} />
-    {needs.length ? <SectionCard title="需要人工处理" attached actions={<Badge variant="secondary">{needs.length} 项</Badge>}>
+    {needs.length ? <SectionCard title="需要人工处理" attached actions={<Badge tone="neutral">{needs.length} 项</Badge>}>
       <DataTable aria-label="人工待办" edge="attached" data={needs.map(resultRecord)} columns={needColumns} getRowId={(row, index) => typeof row.id === 'string' ? row.id : String(index)} />
     </SectionCard> : <EmptyState label="当前无需人工处理" />}
 

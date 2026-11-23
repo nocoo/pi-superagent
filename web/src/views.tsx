@@ -7,7 +7,7 @@ import {
 import { DescriptionList } from '@nocoo/basalt/components/description-list'
 import { Empty } from '@nocoo/basalt/components/empty'
 import { Loader } from '@nocoo/basalt/components/loader'
-import { SkeletonLine } from '@nocoo/basalt/components/skeleton-line'
+import { Skeleton } from '@nocoo/basalt/components/skeleton'
 import { LayerCard } from '@nocoo/basalt/components/layer-card'
 import { formatValue } from './models'
 import { statusLabel } from './presentation'
@@ -24,9 +24,9 @@ export function LoadingState({ label = '正在读取…' }: { label?: string }) 
     <LayerCard.Loading label={label}>
       <Loader label={label} showElapsed={false} />
       <div className="sa-skeletons" aria-label={label}>
-        <SkeletonLine height={10} maxWidth={90} />
-        <SkeletonLine height={10} maxWidth={70} />
-        <SkeletonLine height={10} maxWidth={55} />
+        <Skeleton height={10} width="60%" />
+        <Skeleton height={10} width="50%" />
+        <Skeleton height={10} width="42.5%" />
       </div>
     </LayerCard.Loading>
   </LayerCard>
@@ -86,12 +86,12 @@ export function StatusBadge({ value }: { value: unknown }) {
   const text = formatValue(value)
   const normalized = text.toLowerCase()
   const zh = statusLabel(value)
-  const variant = normalized.includes('error') || normalized.includes('failed') || normalized.includes('blocked') || normalized.includes('stopped')
-    ? 'destructive'
+  const tone = normalized.includes('error') || normalized.includes('failed') || normalized.includes('blocked') || normalized.includes('stopped')
+    ? 'danger'
     : normalized.includes('ready') || normalized.includes('success') || normalized.includes('sent') || normalized.includes('working') || normalized.includes('accept')
-      ? 'default'
-      : 'secondary'
-  return <Badge variant={variant as 'default' | 'destructive' | 'secondary'}>{zh}</Badge>
+      ? 'success'
+      : 'neutral'
+  return <Badge tone={tone}>{zh}</Badge>
 }
 
 export function ConfirmAction({ label, title, description, confirmLabel = '确认', destructive = false,
