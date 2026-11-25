@@ -8,16 +8,16 @@
 
 `pi-superagent` 将领域模型与授权规则独立于运行时之外。单个进程持有一个状态目录，从 Source 接收事件、评估任务、为 Ticket 运行持久化 Pi 会话，并通过 Channel 上报结果。它不是 DSH 运行时，也不依赖 `@deepseek-ai/*` 包。
 
-| 模块 | 实现位置 |
-| --- | --- |
-| 领域模型、Ticket、Eval、Mandate | `src/core/` |
-| 授权与策略版本控制 | `src/policy.ts`、`src/admission.ts` |
-| 协调与路由 | `src/agents/pi-coordinator.ts` 中的持久化 `PiCoordinator` |
-| Ticket 执行 | `src/agents/pi-executor.ts` 中的持久化 Pi worker 会话 |
-| 存储与持久化效应队列 | `src/store/`、`src/runtime/` |
-| Source 接入 | `src/sources/` 中的 GitHub、本地 IM 与通用 Inbox |
-| CLI 与管理 | `src/cli.ts`、`src/cli/commands/`、`src/runtime/management.ts` |
-| Web 面板 | 仅作为 CLI 管理桥接，由 `pi-superagent web` 提供服务 |
+| 模块                            | 实现位置                                                       |
+| ------------------------------- | -------------------------------------------------------------- |
+| 领域模型、Ticket、Eval、Mandate | `src/core/`                                                    |
+| 授权与策略版本控制              | `src/policy.ts`、`src/admission.ts`                            |
+| 协调与路由                      | `src/agents/pi-coordinator.ts` 中的持久化 `PiCoordinator`      |
+| Ticket 执行                     | `src/agents/pi-executor.ts` 中的持久化 Pi worker 会话          |
+| 存储与持久化效应队列            | `src/store/`、`src/runtime/`                                   |
+| Source 接入                     | `src/sources/` 中的 GitHub、本地 IM 与通用 Inbox               |
+| CLI 与管理                      | `src/cli.ts`、`src/cli/commands/`、`src/runtime/management.ts` |
+| Web 面板                        | 仅作为 CLI 管理桥接，由 `pi-superagent web` 提供服务           |
 
 持久化协调器为主会话，可路由显式请求、评估推断候选、读取领域资源、回复、挂载或停止任务并协调 Ticket。Worker 为按 Ticket 隔离的持久化会话，通过类型化工具调用 Engine；模型输出文本本身不构成状态迁移。
 
@@ -104,12 +104,12 @@ pnpm exec vitest run tests/docs.spec.ts
 
 ## 技术栈
 
-| 领域 | 选型 |
-| --- | --- |
+| 领域         | 选型                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
 | 运行时与 CLI | Node.js（>=22.19.0）、TypeScript、Commander、Zod、TypeBox、proper-lockfile |
-| Agent SDK | `@earendil-works/pi-coding-agent`（1.5.0） |
-| Web 面板 | React 19、Vite、Tailwind CSS、`@nocoo/basalt` |
-| 测试 | Vitest、Playwright |
+| Agent SDK    | `@earendil-works/pi-coding-agent`（1.5.0）                                 |
+| Web 面板     | React 19、Vite、Tailwind CSS、`@nocoo/basalt`                              |
+| 测试         | Vitest、Playwright                                                         |
 
 ## 文档
 

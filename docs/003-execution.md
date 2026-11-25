@@ -12,15 +12,15 @@ carried over from [dsh-superagent](https://github.com/deepseek-ai/dsh-superagent
 Each open Ticket has one stage, determined by what it is waiting for. Read the table from top to bottom; the first
 matching row wins. `src/core/stage.ts` implements exactly this.
 
-| Stage | Condition | CLI label |
-| --- | --- | --- |
-| person / delivery | Delivering an Input to the Executor session failed; retried until a success, a new Assignment or the Ticket's end clears it | input undelivered |
-| person / answer | It has an Attention | awaiting answer |
-| person / review | The latest Report is `ready` | awaiting review |
-| person / blocked, failed | The latest Report is `blocked` or `failed`, and no person's message reached the Ticket since | blocked · failed |
-| working / queued | No Assignment, or a pending one | queued |
-| idle | The latest Report is `waiting`, or the Assignment ended | waiting for a trigger |
-| working | Everything else | working |
+| Stage                    | Condition                                                                                                                   | CLI label             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| person / delivery        | Delivering an Input to the Executor session failed; retried until a success, a new Assignment or the Ticket's end clears it | input undelivered     |
+| person / answer          | It has an Attention                                                                                                         | awaiting answer       |
+| person / review          | The latest Report is `ready`                                                                                                | awaiting review       |
+| person / blocked, failed | The latest Report is `blocked` or `failed`, and no person's message reached the Ticket since                                | blocked · failed      |
+| working / queued         | No Assignment, or a pending one                                                                                             | queued                |
+| idle                     | The latest Report is `waiting`, or the Assignment ended                                                                     | waiting for a trigger |
+| working                  | Everything else                                                                                                             | working               |
 
 A `person` stage means the Ticket cannot continue without human input. A new human message releases a `blocked` or
 `failed` Ticket to its Executor.
@@ -32,11 +32,11 @@ An `idle` Ticket has finished its turn without an outstanding question. A Trigge
 `src/agents/pi-executor.ts` implements the domain's `Executor` port: three methods that queue work and report facts back
 through the Engine.
 
-| Method | Does |
-| --- | --- |
-| `start(ticket, assignment)` | Queues a `launch` effect that prepares the directory, opens the session and hands over the work |
-| `deliver(ticket, assignment)` | Queues a `delivery` effect that hands the Ticket's waiting Inputs to the running session |
-| `stop(ticket, assignment, reason)` | Aborts the session's turn and closes it, after the domain already ended the Assignment |
+| Method                             | Does                                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `start(ticket, assignment)`        | Queues a `launch` effect that prepares the directory, opens the session and hands over the work |
+| `deliver(ticket, assignment)`      | Queues a `delivery` effect that hands the Ticket's waiting Inputs to the running session        |
+| `stop(ticket, assignment, reason)` | Aborts the session's turn and closes it, after the domain already ended the Assignment          |
 
 Each Ticket gets a Pi session whose id is `worker-<ticketId>` and a directory named from the Ticket's short name.
 The session is written to `<stateDir>/sessions/worker-<ticketId>.jsonl`, so a relaunch **resumes the conversation**
@@ -73,14 +73,14 @@ record a blocked report with a question and deliver it to the requester. The con
 `src/agents/report-tool.ts` builds these tools per Ticket. A bounded Pi `agent_before_settle` extension requests one
 structured handoff when a worker tries to finish with prose alone.
 
-| Report | Meaning |
-| --- | --- |
-| `progress` | Work is under way |
-| `waiting` | Nothing left to do until a new message arrives on this thread |
-| `ready` | A result is ready for a person to review |
-| `blocked` | A person must act before the worker can continue |
-| `failed` | The worker could not finish |
-| `dropped` | There is nothing to do after all |
+| Report     | Meaning                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `progress` | Work is under way                                             |
+| `waiting`  | Nothing left to do until a new message arrives on this thread |
+| `ready`    | A result is ready for a person to review                      |
+| `blocked`  | A person must act before the worker can continue              |
+| `failed`   | The worker could not finish                                   |
+| `dropped`  | There is nothing to do after all                              |
 
 A non-`ready` report may carry one question for a person, which becomes the Ticket's Attention and routes to the
 conversation the request came from. A question cannot be combined with a ready result or an answer. `question: null`
@@ -125,13 +125,13 @@ The prepare command receives the variables below. Workers receive their task dir
 scope and optional repository through task instructions; these variables are not injected into every worker shell.
 None of the prepare variables contains a credential.
 
-| Variable | Value |
-| --- | --- |
-| `PI_SUPERAGENT_DIR` | The Ticket's directory |
-| `PI_SUPERAGENT_NAME` | The Ticket's short name, as used for its branch |
-| `PI_SUPERAGENT_TICKET` | The Ticket's id |
-| `PI_SUPERAGENT_GITHUB_REPOSITORY` | The repository, `owner/name` |
-| `PI_SUPERAGENT_GITHUB_NUMBER` | The Issue or pull request that started the Ticket, when it came from GitHub |
+| Variable                          | Value                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `PI_SUPERAGENT_DIR`               | The Ticket's directory                                                      |
+| `PI_SUPERAGENT_NAME`              | The Ticket's short name, as used for its branch                             |
+| `PI_SUPERAGENT_TICKET`            | The Ticket's id                                                             |
+| `PI_SUPERAGENT_GITHUB_REPOSITORY` | The repository, `owner/name`                                                |
+| `PI_SUPERAGENT_GITHUB_NUMBER`     | The Issue or pull request that started the Ticket, when it came from GitHub |
 
 These are defaults, not a security boundary: a worker runs with the operator's OS permissions and can still reach
 anything that user can. Isolation requires running the process as a different user or in a container.
@@ -143,8 +143,8 @@ that queue and are retried with backoff; `Later` reschedules without counting as
 rows for the next start. The queue improves recovery, but it is not a Pi durable-job implementation or a subagent supervisor.
 
 On startup the host reports every Assignment that was mid-flight through `Engine.assignmentInterrupted`, which restarts
-it with a recovery note: *the host restarted during this ticket; inspect the worktree, git history and GitHub state
-before continuing, and do not repeat an already completed external operation*. An Assignment whose latest report is
+it with a recovery note: _the host restarted during this ticket; inspect the worktree, git history and GitHub state
+before continuing, and do not repeat an already completed external operation_. An Assignment whose latest report is
 `waiting`, `ready`, `blocked` or `failed` keeps its state and takes the Inputs waiting for it instead, because that
 report already tells a person something.
 
@@ -153,12 +153,12 @@ report already tells a person something.
 The original's Executor carried four behaviours that this one does not. They are listed because each is a real
 difference in what the agent does, not a cosmetic gap.
 
-| Missing | Consequence |
-| --- | --- |
-| Background jobs | The original moved a foreground shell command to a background job after five seconds, so a long command did not hold back the worker's next step. Here a command blocks the turn until it finishes. Steering still works, because the correction lands at the next model request, but the agent cannot act while a command runs. |
-| Handoff of background work | The original could retain a server for human review without holding a worker slot, collecting its end as context for a later turn. This host has no equivalent job supervisor. |
-| Provider-specific model retry classification | The effect queue retries failed operations with a common backoff. Pi session turns are not transparently resumed across provider 408/429/5xx errors; the worker or coordinator records the failure and the host recovers or reports it. |
-| Subagents | No subagent tool is enabled by this application's defaults. Workers can load Pi extensions, including its maintained subagent example; that extension's lifecycle applies. This host adds no cross-restart child supervision. |
+| Missing                                      | Consequence                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background jobs                              | The original moved a foreground shell command to a background job after five seconds, so a long command did not hold back the worker's next step. Here a command blocks the turn until it finishes. Steering still works, because the correction lands at the next model request, but the agent cannot act while a command runs. |
+| Handoff of background work                   | The original could retain a server for human review without holding a worker slot, collecting its end as context for a later turn. This host has no equivalent job supervisor.                                                                                                                                                   |
+| Provider-specific model retry classification | The effect queue retries failed operations with a common backoff. Pi session turns are not transparently resumed across provider 408/429/5xx errors; the worker or coordinator records the failure and the host recovers or reports it.                                                                                          |
+| Subagents                                    | No subagent tool is enabled by this application's defaults. Workers can load Pi extensions, including its maintained subagent example; that extension's lifecycle applies. This host adds no cross-restart child supervision.                                                                                                    |
 
 Speculative execution — starting work before it is known to be wanted — was never implemented in the original either
 and is not implemented here. It belongs to [002](002-authorization.md)'s accept modes, not to the Executor.

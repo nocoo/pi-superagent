@@ -1,6 +1,12 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import { Dashboard } from './shell'
-import './styles.css'
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { Dashboard } from "./shell";
+import "./styles.css";
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><Dashboard /></React.StrictMode>)
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Missing #root");
+createRoot(rootElement).render(
+  <React.StrictMode>
+    <Dashboard />
+  </React.StrictMode>,
+);

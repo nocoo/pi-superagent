@@ -1,89 +1,151 @@
 /** Registry of installed Source kinds, their configured instances, and the Engine's SourceScope implementation. */
-import type { ChannelRef, OutboundMessage, ScopeResult, SourceScope, Trigger } from '../core/index.ts'
-import type { SourceContext } from './host.ts'
-import type { Commands } from '../infra/commands.ts'
-import { HealthBoard, type HealthEntry } from '../infra/health.ts'
-import type { Settings } from '../policy.ts'
-import type { SourceInstance, SourceKind } from './kind.ts'
-
+import type { OutboundMessage, ScopeResult, SourceScope } from "../core/index.ts";
+import type { SourceContext } from "./host.ts";
+import { HealthBoard, type HealthEntry } from "../infra/health.ts";
+import type { Settings } from "../policy.ts";
+import type { SourceInstance, SourceKind } from "./kind.ts";
 
 /**
  * Manages registered SourceKind plugins, validates their instance configuration, and implements SourceScope for the Engine.
  * Claims each registered kind's health entries on HealthBoard and mediates access to source channels for the Host and the Outbox.
  */
 export class SourceRegistry implements SourceScope {
-  private readonly kinds = new Map<string, SourceKind>()
-  private readonly health = new Map<string, HealthEntry>()
-  constructor(private readonly settings: () => Settings, private readonly board: Pick<HealthBoard, 'claim'> = new HealthBoard(),
-    private readonly registered: (kind: SourceKind) => () => void = () => () => {}) {}
+  private readonly kinds = new Map<string, SourceKind>();
+  private readonly health = new Map<string, HealthEntry>();
+  constructor(
+    private readonly settings: () => Settings,
+    private readonly board: Pick<HealthBoard, "claim"> = new HealthBoard(),
+    private readonly registered: (kind: SourceKind) => () => void = () => () => {},
+  ) {}
 
   /** Registers a SourceKind, claims its health entries on HealthBoard (rejecting `sync:` prefixes owned by Settings), and returns an unregister disposer. */
   register<C extends Record<string, unknown>>(kind: SourceKind<C>): () => void {
-    if (this.kinds.has(kind.kind)) throw new Error(`Source kind already registered: ${kind.kind}`)
-    const refused = (name: string) => new Error(`Source kind ${kind.kind} declares the health entry ${name}, which another part reports`)
-    const synced = kind.health.find(name => name.startsWith('sync:'))
-    if (synced) throw refused(synced)
-    const entries = new Map<string, HealthEntry>()
-    const release = () => { for (const [name, entry] of entries) { entry.release(); this.health.delete(name) } }
+    if (this.kinds.has(kind.kind)) throw new Error(`Source kind already registered: ${kind.kind}`);
+    const refused = (name: string) =>
+      new Error(
+        `Source kind ${kind.kind} declares the health entry ${name}, which another part reports`,
+      );
+    const synced = kind.health.find((name) => name.startsWith("sync:"));
+    if (synced) throw refused(synced);
+    const entries = new Map<string, HealthEntry>();
+    const release = () => {
+      for (const [name, entry] of entries) {
+        entry.release();
+        this.health.delete(name);
+      }
+    };
     for (const name of kind.health) {
-      try { entries.set(name, this.board.claim(name, { state: 'starting', detail: '' })) }
-      catch { release(); throw refused(name) }
+      try {
+        entries.set(name, this.board.claim(name, { state: "starting", detail: "" }));
+      } catch {
+        release();
+        throw refused(name);
+      }
     }
-    for (const [name, entry] of entries) this.health.set(name, entry)
-    this.kinds.set(kind.kind, kind as unknown as SourceKind)
-    const unregistered = this.registered(kind as unknown as SourceKind)
-    return () => { this.kinds.delete(kind.kind); release(); unregistered() }
+    for (const [name, entry] of entries) this.health.set(name, entry);
+    this.kinds.set(kind.kind, kind as unknown as SourceKind);
+    const unregistered = this.registered(kind as unknown as SourceKind);
+    return () => {
+      this.kinds.delete(kind.kind);
+      release();
+      unregistered();
+    };
   }
   /**
    * Returns the active health entries for `names`. A Source context writes through the entries it received when built,
    * so reports sent after that registration ended do nothing even if the kind registers again.
    */
   healthEntries(names: readonly string[]): Map<string, HealthEntry> {
-    return new Map(names.flatMap(name => { const entry = this.health.get(name); return entry ? [[name, entry] as const] : [] }))
+    return new Map(
+      names.flatMap((name) => {
+        const entry = this.health.get(name);
+        return entry ? [[name, entry] as const] : [];
+      }),
+    );
   }
-  kind(id: string): SourceKind | undefined { return this.kinds.get(id) }
+  kind(id: string): SourceKind | undefined {
+    return this.kinds.get(id);
+  }
   /** Every registered kind's instance ordered by ID, followed by stored instances whose kind is not installed (with their config kept as stored). */
   instances(settings = this.settings()): (SourceInstance & { installed: boolean })[] {
-    const installed = [...this.kinds.values()].sort((a, b) => a.kind.localeCompare(b.kind)).map(kind => ({ ...this.resolve(kind, settings.sources[kind.kind]), installed: true }))
-    const orphaned = Object.entries(settings.sources).filter(([id]) => !this.kinds.has(id)).map(([id, stored]) => ({ id, kind: id, enabled: stored.enabled, config: stored.config, installed: false }))
-    return [...installed, ...orphaned]
+    const installed = [...this.kinds.values()]
+      .sort((a, b) => a.kind.localeCompare(b.kind))
+      .map((kind) => ({ ...this.resolve(kind, settings.sources[kind.kind]), installed: true }));
+    const orphaned = Object.entries(settings.sources)
+      .filter(([id]) => !this.kinds.has(id))
+      .map(([id, stored]) => ({
+        id,
+        kind: id,
+        enabled: stored.enabled,
+        config: stored.config,
+        installed: false,
+      }));
+    return [...installed, ...orphaned];
   }
-  instance<C extends Record<string, unknown>>(id: string, settings = this.settings()): SourceInstance<C> | undefined {
-    const kind = this.kinds.get(id)
-    return kind ? this.resolve(kind, settings.sources[id]) as SourceInstance<C> : undefined
+  instance<C extends Record<string, unknown>>(
+    id: string,
+    settings = this.settings(),
+  ): SourceInstance<C> | undefined {
+    const kind = this.kinds.get(id);
+    return kind ? (this.resolve(kind, settings.sources[id]) as SourceInstance<C>) : undefined;
   }
-  validate(id: string, value: { enabled: boolean; config: unknown }): { enabled: boolean; config: Record<string, unknown> } {
-    const kind = this.kinds.get(id)
-    if (!kind) throw new Error(`Source kind not installed: ${id}`)
-    return { enabled: value.enabled, config: kind.schema.parse(value.config) }
+  validate(
+    id: string,
+    value: { enabled: boolean; config: unknown },
+  ): { enabled: boolean; config: Record<string, unknown> } {
+    const kind = this.kinds.get(id);
+    if (!kind) throw new Error(`Source kind not installed: ${id}`);
+    return { enabled: value.enabled, config: kind.schema.parse(value.config) };
   }
-  channelAllowed(channel: { source: string; address: Record<string, string> }, settings = this.settings()): boolean {
-    const kind = this.kinds.get(channel.source)
-    if (!kind) return false
-    const instance = this.resolve(kind, settings.sources[channel.source])
-    return instance.enabled && (kind.channel?.allowed?.(channel.address, instance.config) ?? true)
+  channelAllowed(
+    channel: { source: string; address: Record<string, string> },
+    settings = this.settings(),
+  ): boolean {
+    const kind = this.kinds.get(channel.source);
+    if (!kind) return false;
+    const instance = this.resolve(kind, settings.sources[channel.source]);
+    return instance.enabled && (kind.channel?.allowed?.(channel.address, instance.config) ?? true);
   }
   /**
    * Sends a message idempotently through its Channel's kind; returns `'waiting'` while the kind is not installed, or
    * `'gone'` when the target (or a kind without channels) can never receive it.
    */
-  async send(message: OutboundMessage, host: Pick<SourceContext, 'commands' | 'stateDir'>): Promise<'sent' | 'gone' | 'waiting'> {
-    const kind = this.kinds.get(message.channel.source)
-    if (!kind) return 'waiting'
-    return kind.channel ? kind.channel.send(host, message) : 'gone'
+  async send(
+    message: OutboundMessage,
+    host: Pick<SourceContext, "commands" | "stateDir">,
+  ): Promise<"sent" | "gone" | "waiting"> {
+    const kind = this.kinds.get(message.channel.source);
+    if (!kind) return "waiting";
+    return kind.channel ? kind.channel.send(host, message) : "gone";
   }
-  scope(input: { source: string; meta: Record<string, unknown> }, settings = this.settings()): ScopeResult {
-    const kind = this.kinds.get(input.source)
-    const stored = settings.sources[input.source]
+  scope(
+    input: { source: string; meta: Record<string, unknown> },
+    settings = this.settings(),
+  ): ScopeResult {
+    const kind = this.kinds.get(input.source);
+    const stored = settings.sources[input.source];
     // Without its kind plugin the stored scope cannot be evaluated, so a configured Source whose plugin is missing listens to nothing.
-    if (!kind) return stored ? { listened: false, reason: 'source_not_installed' } : { listened: true, observed: false }
-    const instance = this.resolve(kind, stored)
-    if (!instance.enabled) return { listened: false, reason: 'source_disabled' }
-    return kind.scope ? kind.scope({ meta: input.meta }, instance.config) : { listened: true, observed: false }
+    if (!kind)
+      return stored
+        ? { listened: false, reason: "source_not_installed" }
+        : { listened: true, observed: false };
+    const instance = this.resolve(kind, stored);
+    if (!instance.enabled) return { listened: false, reason: "source_disabled" };
+    return kind.scope
+      ? kind.scope({ meta: input.meta }, instance.config)
+      : { listened: true, observed: false };
   }
   /** Falls back to schema defaults and disables the instance when stored configuration fails validation. */
-  private resolve(kind: SourceKind, stored: { enabled: boolean; config: Record<string, unknown> } | undefined): SourceInstance {
-    const parsed = kind.schema.safeParse(stored?.config ?? {})
-    return { id: kind.kind, kind: kind.kind, enabled: parsed.success && (stored?.enabled ?? false), config: parsed.success ? parsed.data : stored?.config ?? {} }
+  private resolve(
+    kind: SourceKind,
+    stored: { enabled: boolean; config: Record<string, unknown> } | undefined,
+  ): SourceInstance {
+    const parsed = kind.schema.safeParse(stored?.config ?? {});
+    return {
+      id: kind.kind,
+      kind: kind.kind,
+      enabled: parsed.success && (stored?.enabled ?? false),
+      config: parsed.success ? parsed.data : (stored?.config ?? {}),
+    };
   }
 }

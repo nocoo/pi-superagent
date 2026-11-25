@@ -8,16 +8,16 @@
 
 `pi-superagent` keeps its domain model and authorization rules independent of the runtime. One process owns a state directory, receives events from Sources, evaluates work, runs persistent Pi sessions for Tickets, and reports results through Channels. It is not a DSH runtime and does not depend on `@deepseek-ai/*` packages.
 
-| Part | Implementation |
-| --- | --- |
-| Domain model, Tickets, Evals, Mandates | `src/core/` |
-| Authorization and policy versioning | `src/policy.ts`, `src/admission.ts` |
-| Coordination and routing | persistent `PiCoordinator` in `src/agents/pi-coordinator.ts` |
-| Ticket execution | persistent Pi worker sessions in `src/agents/pi-executor.ts` |
-| Storage and durable effect queue | `src/store/`, `src/runtime/` |
-| Sources | GitHub, local IM, and generic Inbox in `src/sources/` |
-| CLI and management | `src/cli.ts`, `src/cli/commands/`, `src/runtime/management.ts` |
-| Web panel | CLI management bridge only, served by `pi-superagent web` |
+| Part                                   | Implementation                                                 |
+| -------------------------------------- | -------------------------------------------------------------- |
+| Domain model, Tickets, Evals, Mandates | `src/core/`                                                    |
+| Authorization and policy versioning    | `src/policy.ts`, `src/admission.ts`                            |
+| Coordination and routing               | persistent `PiCoordinator` in `src/agents/pi-coordinator.ts`   |
+| Ticket execution                       | persistent Pi worker sessions in `src/agents/pi-executor.ts`   |
+| Storage and durable effect queue       | `src/store/`, `src/runtime/`                                   |
+| Sources                                | GitHub, local IM, and generic Inbox in `src/sources/`          |
+| CLI and management                     | `src/cli.ts`, `src/cli/commands/`, `src/runtime/management.ts` |
+| Web panel                              | CLI management bridge only, served by `pi-superagent web`      |
 
 The persistent coordinator is the main session. It can route explicit requests, assess inferred candidates, read domain resources, reply, attach or stop work, and coordinate Tickets. Workers are persistent sessions per Ticket. Typed tools call the Engine; model text is not a state transition.
 
@@ -104,12 +104,12 @@ The following are historical experiments, not a current test count or a claim th
 
 ## Stack
 
-| Area | Implementation |
-| --- | --- |
+| Area          | Implementation                                                            |
+| ------------- | ------------------------------------------------------------------------- |
 | Runtime & CLI | Node.js (>=22.19.0), TypeScript, Commander, Zod, TypeBox, proper-lockfile |
-| Agent SDK | `@earendil-works/pi-coding-agent` (1.5.0) |
-| Web panel | React 19, Vite, Tailwind CSS, `@nocoo/basalt` |
-| Testing | Vitest, Playwright |
+| Agent SDK     | `@earendil-works/pi-coding-agent` (1.5.0)                                 |
+| Web panel     | React 19, Vite, Tailwind CSS, `@nocoo/basalt`                             |
+| Testing       | Vitest, Playwright                                                        |
 
 ## Documentation
 

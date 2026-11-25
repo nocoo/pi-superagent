@@ -1,13 +1,19 @@
 /** Reusable core: the domain model, ports and Engine, plus the Pi-backed Executor and Assessor. */
-export * from './core/index.ts'
-export { Host, prepareTicket } from './runtime/host.ts'
-export { PiExecutor, workerSessionId, ticketOfSession } from './agents/pi-executor.ts'
-export { PiCoordinator } from './agents/pi-coordinator.ts'
-export { PiSessions } from './agents/sessions.ts'
-export { githubKind } from './sources/github.ts'
-export { imKind } from './sources/im.ts'
-export { inboxKind, inboxTrigger, readInboxReplies, InboxEventSchema } from './sources/inbox.ts'
-export type { SourceKind, SourceInstance, SourceChannel } from './sources/kind.ts'
-export type { SourceHost, SourceContext } from './sources/host.ts'
-export { Store } from './store/store.ts'
-export { policyVersion, settingsPolicy, policyEffects, SettingsSchema, type Settings } from './policy.ts'
+export * from "./core/index.ts";
+export { Host, prepareTicket } from "./runtime/host.ts";
+export { PiExecutor, workerSessionId, ticketOfSession } from "./agents/pi-executor.ts";
+export { PiCoordinator } from "./agents/pi-coordinator.ts";
+export { PiSessions } from "./agents/sessions.ts";
+export { githubKind } from "./sources/github.ts";
+export { imKind } from "./sources/im.ts";
+export { inboxKind, inboxTrigger, readInboxReplies, InboxEventSchema } from "./sources/inbox.ts";
+export type { SourceKind, SourceInstance, SourceChannel } from "./sources/kind.ts";
+export type { SourceHost, SourceContext } from "./sources/host.ts";
+export { Store } from "./store/store.ts";
+export {
+  policyVersion,
+  settingsPolicy,
+  policyEffects,
+  SettingsSchema,
+  type Settings,
+} from "./policy.ts";

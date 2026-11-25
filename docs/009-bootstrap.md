@@ -9,13 +9,13 @@ Asking the agent to change `pi-superagent` is the most honest test there is, and
 means the next start fails, and the process that would fix it is the one that cannot start. `examples/ledger` exists so
 the same loop can run with nothing at stake.
 
-| | Changing itself | Changing `examples/ledger` |
-| --- | --- | --- |
-| A wrong change | the agent cannot start; no one to recover it | delete the ticket directory and try again |
-| Repeatable | no: the target changes every time | yes: the same defects, every run |
-| Verdict | a person reads a diff | `node tests/all.test.ts` and `ledger check` |
-| Isolation | needs a worktree and discipline | `rsync` into the ticket directory |
-| Proves | that the agent can be trusted with its own code | that the loop works |
+|                | Changing itself                                 | Changing `examples/ledger`                  |
+| -------------- | ----------------------------------------------- | ------------------------------------------- |
+| A wrong change | the agent cannot start; no one to recover it    | delete the ticket directory and try again   |
+| Repeatable     | no: the target changes every time               | yes: the same defects, every run            |
+| Verdict        | a person reads a diff                           | `node tests/all.test.ts` and `ledger check` |
+| Isolation      | needs a worktree and discipline                 | `rsync` into the ticket directory           |
+| Proves         | that the agent can be trusted with its own code | that the loop works                         |
 
 Self-modification is the end state. The target is how the loop earns it.
 
@@ -32,11 +32,11 @@ node tests/all.test.ts
 
 It carries three defects, written as ordinary code rather than planted markers. Each needs a different kind of work:
 
-| Defect | Where | What it takes | How it shows |
-| --- | --- | --- | --- |
-| A month is read in UTC, so a transaction at `2026-03-01T00:30:00+08:00` is counted in February | `monthOf` in `examples/ledger/src/report.ts` | reading the code and knowing what the offset means | a person says the coffee was counted in the wrong month |
-| Category totals use `Math.abs`, so a refund increases its category | `report` in `examples/ledger/src/report.ts` | noticing that the breakdown does not add up to the total | `ledger check` fails, and a person notices food went up |
-| An invalid date such as `2026-02-30` is silently rolled into the next month | `parse` in `examples/ledger/src/parse.ts` | deciding whether to reject it or count it | only visible if the agent reads the data |
+| Defect                                                                                         | Where                                        | What it takes                                            | How it shows                                            |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------- |
+| A month is read in UTC, so a transaction at `2026-03-01T00:30:00+08:00` is counted in February | `monthOf` in `examples/ledger/src/report.ts` | reading the code and knowing what the offset means       | a person says the coffee was counted in the wrong month |
+| Category totals use `Math.abs`, so a refund increases its category                             | `report` in `examples/ledger/src/report.ts`  | noticing that the breakdown does not add up to the total | `ledger check` fails, and a person notices food went up |
+| An invalid date such as `2026-02-30` is silently rolled into the next month                    | `parse` in `examples/ledger/src/parse.ts`    | deciding whether to reject it or count it                | only visible if the agent reads the data                |
 
 The third one has no correct answer written down, which is the point: it should produce a question for a person, not a
 silent choice.
@@ -103,13 +103,13 @@ source, a script can instead call `pi-superagent source receive --file -` and re
 
 The ledger script says five things:
 
-| Said | Exercises |
-| --- | --- |
+| Said                                              | Exercises                                                      |
+| ------------------------------------------------- | -------------------------------------------------------------- |
 | "the coffee on March 1st was counted in February" | a specific, locatable defect becomes one ticket and gets fixed |
-| "food went up even though I refunded twice" | a defect that needs the data read, not only the code |
-| "this month felt expensive" | vague chatter is ignored: no ticket, no question |
-| "could you add a web interface?" | an out-of-scope request does not expand the open ticket |
-| "forget the web, check the dates" | a correction reaches a worker that is already running |
+| "food went up even though I refunded twice"       | a defect that needs the data read, not only the code           |
+| "this month felt expensive"                       | vague chatter is ignored: no ticket, no question               |
+| "could you add a web interface?"                  | an out-of-scope request does not expand the open ticket        |
+| "forget the web, check the dates"                 | a correction reaches a worker that is already running          |
 
 ## Live system probe
 
@@ -121,14 +121,14 @@ command, not a unit-test baseline.
 
 The first historical measured run, on the ledger target:
 
-| Step | Result |
-| --- | --- |
-| Assessment | `accept`, rule `ledger`, direction settled |
-| Ticket | created, one directory, one worker |
-| Work | `examples/ledger/src/report.ts` changed in one place: `monthOf` reads the month at the timestamp's own offset |
-| Verification | the worker ran the ledger's own tests: 12 before, 15 after |
-| Outcome | March went from `852.00` to `856.00`; the ticket reported `ready` and the result reached the channel |
-| Scope | the refund defect was untouched, because it had not been reported |
+| Step         | Result                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| Assessment   | `accept`, rule `ledger`, direction settled                                                                    |
+| Ticket       | created, one directory, one worker                                                                            |
+| Work         | `examples/ledger/src/report.ts` changed in one place: `monthOf` reads the month at the timestamp's own offset |
+| Verification | the worker ran the ledger's own tests: 12 before, 15 after                                                    |
+| Outcome      | March went from `852.00` to `856.00`; the ticket reported `ready` and the result reached the channel          |
+| Scope        | the refund defect was untouched, because it had not been reported                                             |
 
 That last row matters as much as the others: the agent fixed what was asked and nothing else.
 
@@ -150,9 +150,9 @@ bad change. Everything up to that point is automated; that point is not.
   of scope (`handback` in [003](003-execution.md)) or the channel collapses into one ticket. This was measured to work,
   and it is the part of the design with the least margin for error.
 - **A worker may hand a message back and then work on it anyway.** A second request in a channel reaches the live
-  ticket, whose worker is expected to hand it back so it gets its own ticket. In one run the worker handed it back *and*
+  ticket, whose worker is expected to hand it back so it gets its own ticket. In one run the worker handed it back _and_
   fixed it, so two directories gained the same change. The domain did the right thing; the worker did not. The tool and
-  [004](004-prompts.md) now say to hand back *before* starting, but nothing enforces it — watch `pi-superagent ticket
+  [004](004-prompts.md) now say to hand back _before_ starting, but nothing enforces it — watch `pi-superagent ticket
   list` after a second request lands in a channel that already has a ticket.
 - **The target has no git repository**, so a worker cannot show its change as a commit or open a pull request, and says
   so in its report. Add `git init` and a first commit to the `prepare` command if a diff matters to you.

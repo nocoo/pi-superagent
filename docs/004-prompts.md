@@ -9,11 +9,11 @@ cells, accept mode, and model routes. Prompt text controls how an agent interpre
 
 The runtime has versioned prompts for three stable roles:
 
-| Role | Session | Prompt role | Purpose |
-| --- | --- | --- | --- |
-| Coordinator | `coordinator` | `orchestrator` | Persistent main session: routing, assessment, cross-Ticket coordination, replies and management |
-| Assessment caller | the coordinator session while it handles a candidate | `orchestrator` plus candidate context | Investigates a batch, uses typed tools, and records a domain Decision |
-| Worker | `worker-<ticketId>` | `work` | Executes one Ticket inside its prepared directory |
+| Role              | Session                                              | Prompt role                           | Purpose                                                                                         |
+| ----------------- | ---------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Coordinator       | `coordinator`                                        | `orchestrator`                        | Persistent main session: routing, assessment, cross-Ticket coordination, replies and management |
+| Assessment caller | the coordinator session while it handles a candidate | `orchestrator` plus candidate context | Investigates a batch, uses typed tools, and records a domain Decision                           |
+| Worker            | `worker-<ticketId>`                                  | `work`                                | Executes one Ticket inside its prepared directory                                               |
 
 The current implementation no longer has the old separate Pi assessor file or a separate one-shot assessor session. Candidate
 assessment is performed by `PiCoordinator` in `src/agents/pi-coordinator.ts`, using the persistent coordinator session.

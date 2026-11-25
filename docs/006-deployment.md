@@ -8,22 +8,22 @@ builds on [005 CLI](005-cli.md).
 
 The agent is a local task runtime, not only a GitHub bot. What wakes it up is a Source, and this build has three:
 
-| Source | Needs | Use |
-| --- | --- | --- |
-| `github` | optional repository and agent account | issues, pull requests, CI and GitHub conversations |
-| `im` | nothing but this machine | local interactive or scripted channels; see [009](009-bootstrap.md) |
-| `inbox` | one external event producer and runtime IPC | generic IM, ticket, support or other external events |
+| Source   | Needs                                       | Use                                                                 |
+| -------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| `github` | optional repository and agent account       | issues, pull requests, CI and GitHub conversations                  |
+| `im`     | nothing but this machine                    | local interactive or scripted channels; see [009](009-bootstrap.md) |
+| `inbox`  | one external event producer and runtime IPC | generic IM, ticket, support or other external events                |
 
 GitHub may be omitted. Inbox and IM may run without a repository or `gh`, so the same runtime can handle non-coding tasks
 and maintain a local workbench.
 
 ## Prerequisites
 
-| Needs | Why |
-| --- | --- |
-| Node.js 22.19 or newer | `node:sqlite` and the TypeScript build target |
-| `gh` 2.48 or newer | every GitHub read and write goes through it |
-| `git` | the `prepare` command creates worktrees |
+| Needs                                | Why                                                   |
+| ------------------------------------ | ----------------------------------------------------- |
+| Node.js 22.19 or newer               | `node:sqlite` and the TypeScript build target         |
+| `gh` 2.48 or newer                   | every GitHub read and write goes through it           |
+| `git`                                | the `prepare` command creates worktrees               |
 | Pi SDK 1.4.0 with a configured model | the persistent coordinator and worker sessions use Pi |
 
 ```sh
@@ -95,10 +95,10 @@ provider `magpie`, model `group/coding`.
 
 Two roles have models:
 
-| Role | Setting | Default |
-| --- | --- | --- |
-| Coordinator / assessment | `eval.model` | Pi's configured default |
-| Worker | `executor.model` | Pi's configured default |
+| Role                     | Setting          | Default                 |
+| ------------------------ | ---------------- | ----------------------- |
+| Coordinator / assessment | `eval.model`     | Pi's configured default |
+| Worker                   | `executor.model` | Pi's configured default |
 
 Coordinator assessment turns are short and frequent; workers are long and rare. Pointing them at different models is the normal
 arrangement.
@@ -247,16 +247,16 @@ binary before the state directory is written by a newer one.
 
 ## Troubleshooting
 
-| Symptom | Look at | Usually |
-| --- | --- | --- |
-| `no_instance` | `ls ~/.pi-superagent` | `--state-dir` typo, or the agent never ran |
-| `locked` | `ps aux \| grep pi-superagent` | two services, or a service plus a foreground `run` |
-| nothing arrives | `pi-superagent source` | `gh` not on the service's `PATH`, wrong account, or the receive-all switches are off |
-| a candidate is `unavailable` | `pi-superagent decision show <id>` | the assessment failed; the message carries the model's last words |
-| a Ticket sits in `working` | `pi-superagent ticket read <id>` | the worker is running; if it is not, `ticket show` names the failed delivery or report |
-| the agent answers itself | the `as @…` line in `run`'s output | it is acting as the operator's account |
-| `ignore`, reason `noRuleMatched` | `pi-superagent decision show <id>` | no rule covers that kind of work; add one |
-| accepted but did nothing | `pi-superagent ticket show <id>` | `prepare` failed, or the worker reported `dropped` with its evidence |
+| Symptom                          | Look at                            | Usually                                                                                |
+| -------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `no_instance`                    | `ls ~/.pi-superagent`              | `--state-dir` typo, or the agent never ran                                             |
+| `locked`                         | `ps aux \| grep pi-superagent`     | two services, or a service plus a foreground `run`                                     |
+| nothing arrives                  | `pi-superagent source`             | `gh` not on the service's `PATH`, wrong account, or the receive-all switches are off   |
+| a candidate is `unavailable`     | `pi-superagent decision show <id>` | the assessment failed; the message carries the model's last words                      |
+| a Ticket sits in `working`       | `pi-superagent ticket read <id>`   | the worker is running; if it is not, `ticket show` names the failed delivery or report |
+| the agent answers itself         | the `as @…` line in `run`'s output | it is acting as the operator's account                                                 |
+| `ignore`, reason `noRuleMatched` | `pi-superagent decision show <id>` | no rule covers that kind of work; add one                                              |
+| accepted but did nothing         | `pi-superagent ticket show <id>`   | `prepare` failed, or the worker reported `dropped` with its evidence                   |
 
 `--verbose` on `run` prints every domain event as one line, which is the fastest way to see whether a Trigger was
 received, filtered, assessed or fanned out. `PI_SUPERAGENT_TRACE=1` adds the intake decision — which tickets a Trigger

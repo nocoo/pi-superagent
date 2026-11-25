@@ -50,11 +50,11 @@ messages that reach no Ticket take the Eval path.
 
 ## Strength
 
-| Strength | Cases |
-| --- | --- |
-| explicit | A person on the list addresses the agent, or follows up on a Thread that already has a Ticket; a cell of the admission table set to explicit request |
-| inferred | A person not on the list follows up on a Thread with a Ticket, unless their cell of the admission table is explicit; a cell set to inferred candidate; a message of a bot on the Source's bot list |
-| not admitted | Any other bot's message, everything the admission table ignores, and every inferred case while the accept mode is `off` |
+| Strength     | Cases                                                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| explicit     | A person on the list addresses the agent, or follows up on a Thread that already has a Ticket; a cell of the admission table set to explicit request                                               |
+| inferred     | A person not on the list follows up on a Thread with a Ticket, unless their cell of the admission table is explicit; a cell set to inferred candidate; a message of a bot on the Source's bot list |
+| not admitted | Any other bot's message, everything the admission table ignores, and every inferred case while the accept mode is `off`                                                                            |
 
 For an unlisted person, an explicit admission cell takes precedence even on a Thread with Tickets and works in every
 accept mode. Otherwise their follow-up is inferred and is not admitted in `off` mode.
@@ -68,11 +68,11 @@ Each Source's Policy has an admission table. Its rows are receiving scopes:
 A row has up to three cells. Each cell decides whether a message becomes an explicit request, an inferred candidate or
 nothing:
 
-| Cell | Choices | Default |
-| --- | --- | --- |
-| On the list, not addressing the agent | inferred, ignore | inferred |
-| Not on the list, addressing the agent | explicit, inferred, ignore | ignore |
-| Not on the list, not addressing the agent | inferred, ignore | ignore |
+| Cell                                      | Choices                    | Default  |
+| ----------------------------------------- | -------------------------- | -------- |
+| On the list, not addressing the agent     | inferred, ignore           | inferred |
+| Not on the list, addressing the agent     | explicit, inferred, ignore | ignore   |
+| Not on the list, not addressing the agent | inferred, ignore           | ignore   |
 
 Cells for unaddressed messages are available only where the Source receives every message, such as a GitHub scope with
 its receive-all switch enabled. A CI result has no sender, so its row offers only the last cell. Bot messages use the
@@ -100,11 +100,11 @@ and generate follow-up notices. Prompt text must identify such accounts as autom
 
 The accept mode is part of the Policy:
 
-| Mode | Effect |
-| --- | --- |
-| `off` | Nothing inferred becomes a candidate |
+| Mode                | Effect                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `off`               | Nothing inferred becomes a candidate                                                                                         |
 | `observe` (default) | Inferred candidates are assessed; a positive assessment is recorded as ignore marked `would_accept`, and nothing is accepted |
-| `auto` | A positive assessment of an inferred candidate accepts it |
+| `auto`              | A positive assessment of an inferred candidate accepts it                                                                    |
 
 Each rule describes a kind of proactive work, and each assessment judges every enabled rule exactly once, whether it
 matches or not. An accept requires at least one matching rule. The Ticket's Mandate records the matched rules, and its
@@ -112,9 +112,9 @@ Executor receives their names and instructions, which take precedence over the d
 
 Two rules ship enabled:
 
-| Rule | Covers |
-| --- | --- |
-| `copy` | Explicit requests to correct a typo, wording, punctuation or existing translation |
+| Rule     | Covers                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copy`   | Explicit requests to correct a typo, wording, punctuation or existing translation                                                                                      |
 | `visual` | Explicit implementation requests for local spacing, alignment, overflow or styling, with a specified target or an objectively established existing standard to restore |
 
 A team adds rules for the proactive work it wants. Rules are prompt text with an identity, not code: they are read by

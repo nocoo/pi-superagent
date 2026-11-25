@@ -90,7 +90,7 @@ the right path.
 
 ### 4. The assessor could not correct itself
 
-`assessmentOutcome` validated the model's verdict *after* the session ended, so a single mistake — judging the wrong
+`assessmentOutcome` validated the model's verdict _after_ the session ended, so a single mistake — judging the wrong
 number of rules — threw away the whole assessment and recorded `unavailable`. The original design validates inside the
 tool for exactly this reason: a tool failure is an error result the model reads and can fix.
 
@@ -114,26 +114,28 @@ the lesson.
 **What actually happened**, from the trigger's own disposition record:
 
 ```json
-{ "fanout": ["39c657e4…"],
-  "handbacks": [{ "ticketId": "39c657e4…", "reason": "beyond this ticket", "at": "05:54:21.092Z" }] }
+{
+  "fanout": ["39c657e4…"],
+  "handbacks": [{ "ticketId": "39c657e4…", "reason": "beyond this ticket", "at": "05:54:21.092Z" }]
+}
 ```
 
-| Time | Event |
-| --- | --- |
-| 05:52:27 | ticket A created; assignment 1 starts |
-| 05:53:04 | assignment 1 reports `ready`; ticket A ends |
-| 05:54:14 | a second, unrelated request arrives in the same channel |
-| 05:54:14 | the trigger fans out to ticket A, which resumes |
-| 05:54:21 | ticket A's worker **hands the message back** with the `handback` tool |
-| 05:54:34 | with no owner left, the trigger is assessed and ticket B is created |
+| Time     | Event                                                                           |
+| -------- | ------------------------------------------------------------------------------- |
+| 05:52:27 | ticket A created; assignment 1 starts                                           |
+| 05:53:04 | assignment 1 reports `ready`; ticket A ends                                     |
+| 05:54:14 | a second, unrelated request arrives in the same channel                         |
+| 05:54:14 | the trigger fans out to ticket A, which resumes                                 |
+| 05:54:21 | ticket A's worker **hands the message back** with the `handback` tool           |
+| 05:54:34 | with no owner left, the trigger is assessed and ticket B is created             |
 | 05:54:53 | ticket A reports `ready` — having fixed the same thing ticket B was created for |
 
 Every step is what the design says should happen. A message outside a ticket's mandate is handed back, and the domain
 gives it its own mandate. The defect is one level down, in the worker: it handed the message back **and then did the
 work anyway**, which is why two directories gained the same fix.
 
-So the fix is in the tools and the prompt, not in the domain: `handback` now answers *stop working on this message,
-change nothing for it*, and `prompts/work.md` says to hand back **before** starting rather than after.
+So the fix is in the tools and the prompt, not in the domain: `handback` now answers _stop working on this message,
+change nothing for it_, and `prompts/work.md` says to hand back **before** starting rather than after.
 
 **Why the reproductions failed.** Both used fake Executor and Assessor ports, so nothing ever called `handback`. The
 behaviour under test did not exist in the harness. Reproducing a production symptom means reproducing the parts of

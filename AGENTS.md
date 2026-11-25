@@ -11,6 +11,7 @@ Run from repository root with Node >=22.19.0 (CI pins `26.12.1`) and `pnpm 11.6.
 pnpm install --frozen-lockfile
 pnpm dev            # https://superagent.dev.hexly.ai -> 127.0.0.1:7062
 pnpm typecheck      # S1: tsc --noEmit && tsc -p web/tsconfig.json
+pnpm lint           # S2: Biome lint and format check
 pnpm build          # B1: tsc -p tsconfig.build.json && vite build
 pnpm test           # L1: pnpm build && vitest run (tests/*.spec.ts)
 pnpm check          # pnpm typecheck && pnpm test
@@ -30,17 +31,17 @@ git diff --check
 
 Follows `system1-quality`; CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (via `.github/workflows/ci.yml`; `quality / Z1: Gate` required on `main` by `main quality gate`). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
-- **Static & packaging (`N/A`)**: `S2 Lint` (no linter/formatter configured), `L2 Runtime` (no platform runtime binding), and `P1 Package` (private package; nothing published to npm).
+- **Static & packaging (`N/A`)**: `L2 Runtime` (no platform runtime binding) and `P1 Package` (private package; nothing published to npm). `S2 Lint` is `enforced` via Biome (`pnpm lint`).
 - **Integration & E2E (`N/A`)**: `L3 Integration` (CLI and web tests run in `L1` Vitest) and `L4 E2E` (no CI browser suite; `scripts/probe-web.ts` is `manual`).
 - **Local hooks**: none configured (`manual`); run `pnpm check` and `git diff --check` locally before committing.
 
 ## Resources & Isolation
 
-| Lane | Endpoint / State | Boundary |
-| --- | --- | --- |
-| Local panel | `https://superagent.dev.hexly.ai` → `127.0.0.1:7062` | Loopback CLI bridge to one process-owned state dir |
-| Tests | Per-run temp dirs under `tests/` | Isolated fixtures; no live API or external network calls |
-| Live probes | `pnpm test:live`, `scripts/probe-web.ts` | `manual` operator runs only; never invoke in CI |
+| Lane        | Endpoint / State                                     | Boundary                                                 |
+| ----------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| Local panel | `https://superagent.dev.hexly.ai` → `127.0.0.1:7062` | Loopback CLI bridge to one process-owned state dir       |
+| Tests       | Per-run temp dirs under `tests/`                     | Isolated fixtures; no live API or external network calls |
+| Live probes | `pnpm test:live`, `scripts/probe-web.ts`             | `manual` operator runs only; never invoke in CI          |
 
 ## Retrospective
 
