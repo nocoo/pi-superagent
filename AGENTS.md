@@ -29,7 +29,7 @@ git diff --check
 
 ## Quality & Local Gates
 
-Follows `system1-quality`; CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (via `.github/workflows/ci.yml`; `quality / Z1: Gate` required on `main` by `main quality gate`). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
+Follows `system1-quality`; CI slot definitions and pinned `base-ci` (`v2026.24`) revision live in `.github/workflows/quality-slots.yml` (via `.github/workflows/pipeline.yml`; `quality / Z1: Gate` required on `main` by `main quality gate`), with no CD workflow (local CLI/panel service only). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
 - **Static & packaging (`N/A`)**: `L2 Runtime` (no platform runtime binding) and `P1 Package` (private package; nothing published to npm). `S2 Lint` is `enforced` via Biome (`pnpm lint`).
 - **Integration & E2E (`N/A`)**: `L3 Integration` (CLI and web tests run in `L1` Vitest) and `L4 E2E` (no CI browser suite; `scripts/probe-web.ts` is `manual`).
