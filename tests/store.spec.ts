@@ -161,4 +161,132 @@ describe("the store", () => {
     expect(seen).toEqual(["outer"]);
     open.close();
   });
+
+  it("serves read-only queries for triggers, decisions, threads, outbox, and effect queues", () => {
+    const open = store();
+    const t1: Trigger = {
+      ...trigger("t-one_100%"),
+      url: "https://github.com/o/r/issues/1",
+      at: "2026-01-01T00:00:01.000Z",
+      meta: { kind: "issue", messageId: "m-1" },
+    };
+    const t2: Trigger = {
+      ...trigger("t-ci"),
+      human: false,
+      at: "2026-01-01T00:00:02.000Z",
+      meta: { ci: true },
+    };
+    const t3: Trigger = {
+      ...trigger("t-two"),
+      at: "2026-01-01T00:00:03.000Z",
+      text: "follow up 100% needed",
+    };
+    open.triggers.save(t1);
+    open.triggers.saveDisposition(t1.id, { fanout: [], at: t1.at });
+    open.triggers.save(t2);
+    open.triggers.saveDisposition(t2.id, {
+      filtered: { code: "senderNotMember" },
+      fanout: [],
+      at: t2.at,
+    });
+    open.triggers.save(t3);
+    open.triggers.saveDisposition(t3.id, { fanout: [], at: t3.at });
+
+    open.threads.save({
+      key: "github:1",
+      ref: { source: "github", id: "1" },
+      createdAt: t1.at,
+      lastAt: t3.at,
+      subscriptions: ["tk1"],
+      correlated: [],
+      pending: [],
+      meta: {},
+    });
+    open.decisions.save({
+      id: "d-acc",
+      evalId: "e1",
+      threadKey: "github:1",
+      triggerIds: [t1.id],
+      policyVersion: "v1",
+      at: "2026-01-01T00:00:01.500Z",
+      kind: "accept",
+      reason: [],
+      strength: "explicit",
+      ticketId: "tk1",
+    });
+    open.decisions.save({
+      id: "d-unavail",
+      evalId: "e2",
+      threadKey: "github:1",
+      triggerIds: [t3.id],
+      policyVersion: "v1",
+      at: "2026-01-01T00:00:03.500Z",
+      kind: "unavailable",
+      reason: [{ code: "timeout" }],
+      strength: "explicit",
+    });
+
+    const msgPending = {
+      id: "out-pending",
+      channel: { source: "github", thread: "github:1", address: { number: "1" } },
+      text: "wait",
+      kind: "reply" as const,
+    };
+    const msgDropped = {
+      id: "out-dropped",
+      channel: { source: "github", thread: "github:1", address: { number: "1" } },
+      text: "gone",
+      kind: "reply" as const,
+    };
+    open.receipts.add(msgPending);
+    open.receipts.add(msgDropped);
+    open.receipts.settle(msgDropped, "channelGone");
+    open.db
+      .prepare(
+        "INSERT INTO effect (kind, key, value, seq, attempts, error, due, since) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("reply", "out-pending", "{}", 1, 2, "HTTP 502", 0, "2026-01-01T00:00:04.000Z");
+
+    expect(open.read.recentTriggers(0, 2).map((t) => t.id)).toEqual(["t-two", "t-ci"]);
+    expect(open.read.triggerStats("2026-01-01T00:00:00.000Z").github).toEqual({
+      received: 3,
+      filtered: 1,
+      lastAt: "2026-01-01T00:00:03.000Z",
+    });
+    expect(open.read.flow("2026-01-01T00:00:00.000Z")).toEqual({ judged: 2, accepted: 1 });
+    expect(open.read.triggers({ source: "github", filtered: true }).items.map((t) => t.id)).toEqual(
+      ["t-ci"],
+    );
+    expect(open.read.threadPage("github:1", 0, 2).map((t) => t.id)).toEqual(["t-two", "t-ci"]);
+    // Neighbours skip CI triggers
+    expect(open.read.neighbours("github:1", t3.at, t3.id).before?.id).toBe(t1.id);
+    expect(open.read.firstTrigger("github:1", true)?.id).toBe(t1.id);
+    expect(open.read.search("100%").map((t) => t.id)).toEqual(["t-two", "t-one_100%"]);
+    expect(open.read.triggersByPrefix("t-one_").map((t) => t.id)).toEqual(["t-one_100%"]);
+    expect(open.read.triggerCounts()["github:1"]).toBe(3);
+
+    expect(open.read.recentDecisions().map((d) => d.id)).toEqual(["d-unavail", "d-acc"]);
+    expect(
+      open.read
+        .decisions({ kinds: ["accept"], since: "2026-01-01T00:00:00.000Z" }, 0, 10)
+        .items.map((d) => d.id),
+    ).toEqual(["d-acc"]);
+    expect(open.read.decisionsOfKinds(["unavailable"]).map((d) => d.id)).toEqual(["d-unavail"]);
+    expect(open.read.unavailable("2026-01-01T00:00:00.000Z").map((d) => d.id)).toEqual([
+      "d-unavail",
+    ]);
+
+    expect(open.read.failingReplies()).toMatchObject([
+      { id: "out-pending", attempts: 2, error: "HTTP 502" },
+    ]);
+    expect(open.read.droppedReplies().map((d) => d.id)).toEqual(["out-dropped"]);
+    expect(open.read.droppedSince("2026-01-01T00:00:00.000Z")).toBe(1);
+    expect(open.read.queue()).toEqual([
+      { kind: "reply", waiting: 1, failing: 1, oldest: "2026-01-01T00:00:04.000Z" },
+    ]);
+    expect(open.read.receipts()).toEqual({ pending: 1, sent: 0, dropped: 1 });
+    expect(open.read.subscribedThreads().map((t) => t.key)).toEqual(["github:1"]);
+    expect(open.read.subscribedThreads("github").map((t) => t.key)).toEqual(["github:1"]);
+    open.close();
+  });
 });

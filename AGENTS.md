@@ -12,9 +12,11 @@ pnpm install --frozen-lockfile
 pnpm dev            # https://superagent.dev.hexly.ai -> 127.0.0.1:7062
 pnpm typecheck      # S1: tsc --noEmit && tsc -p web/tsconfig.json
 pnpm lint           # S2: Biome lint and format check
-pnpm build          # B1: tsc -p tsconfig.build.json && vite build
-pnpm test           # L1: pnpm build && vitest run (tests/*.spec.ts)
-pnpm check          # pnpm typecheck && pnpm test
+pnpm build:cli      # tsc -p tsconfig.build.json (builds lib/ for CLI tests)
+pnpm build          # B1: pnpm build:cli && vite build
+pnpm test           # L1: vitest run (tests/*.spec.ts; requires lib/ from build:cli)
+pnpm test:coverage  # L1 (CI): vitest run --coverage
+pnpm check          # pnpm typecheck && pnpm build:cli && pnpm test:coverage
 git diff --check
 ```
 

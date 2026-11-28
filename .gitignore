@@ -1,6 +1,7 @@
 node_modules/
 lib/
 web/dist/
+coverage/
 .local/
 *.log
 .DS_Store

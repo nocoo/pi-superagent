@@ -21,12 +21,14 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && vite build",
+    "build:cli": "tsc -p tsconfig.build.json",
+    "build": "pnpm build:cli && vite build",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json",
     "lint": "biome check --error-on-warnings .",
     "lint:fix": "biome check --write .",
-    "test": "pnpm build && vitest run",
-    "check": "pnpm typecheck && pnpm test",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "pnpm typecheck && pnpm build:cli && pnpm test:coverage",
     "dev": "pnpm build && node lib/cli.js web",
     "test:live": "pnpm build && node scripts/probe-system.ts"
   },
@@ -49,6 +51,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "4.1.12",
     "tailwindcss": "4.3.5",
     "typescript": "6.0.3",
     "vite": "^8.3.5",
